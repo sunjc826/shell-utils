@@ -1,21 +1,6 @@
-# Use BU_xxx as project namespace, where BU stands for Bash Utils
-# Use RV as standard return type
-# Optimized implementations
-bu_dirname()
-{
-    case "$1" in
-    */*) RV=${1%/*};;
-    *) RV=.;;
-    esac
-}
+source ../../config/static.sh
 
-bu_basename()
-{
-    case "$1" in
-    */*) RV=${1##*/};;
-    *) RV=$1;;
-    esac
-}
+
 
 bu_mkdir()
 {
@@ -49,9 +34,9 @@ then
 fi
 bu_builtin_read()
 {
-    RV=
+    BU_RV=
     "$@" >&"$BU_FIFO_FD" || return 1
-    read -r RV <&"$BU_FIFO_FD"
+    read -r BU_RV <&"$BU_FIFO_FD"
 }
 
 bu_builtin_mapfile()
@@ -59,11 +44,40 @@ bu_builtin_mapfile()
     :
 }
 
-LOG_DEPTH=0
 
 # Logging
-log_err()
+: BU_LOG_DEPTH=${BU_LOG_DEPTH:-0}
+bu_log_depth++()
 {
-    : $((LOG_DEPTH++))
-    basename_o "${BASH_SOURCE[i]}"
+    : "$((BU_LOG_DEPTH++))"
 }
+bu_log_depth--()
+{
+    : "$((BU_LOG_DEPTH--))"
+}
+# This should not be called, because it assumes it is called by a bu_log_[LOG_LVL] function.
+__bu_log()
+{
+    local color=$1
+    local BU_RV
+    bu_basename "${BASH_SOURCE[BU_LOG_DEPTH+2]}"
+    printf "${color}${FUNCNAME[BU_LOG_DEPTH+1]}@${BU_RV}:${BASH_LINENO[BU_LOG_DEPTH+2]}%s${BU_SGR0}\n" >&2
+}
+bu_log_err()
+{
+    __bu_log "$BU_RED" "$*"
+}
+bu_log_warn() { :; }
+bu_log_info() { :; }
+bu_log_debug() { :; }
+
+if (( BU_LOG_LVL >= BU_LOG_LVL_WARN )); then
+bu_log_warn() { __bu_log "$BU_YELLOW" "$*"; }
+if (( BU_LOG_LVL >= BU_LOG_LVL_INFO )); then
+bu_log_info() { __bu_log "$BU_BLUE" "$*"; }
+if (( BU_LOG_LVL >= BU_LOG_LVL_DEBUG )); then
+bu_log_debug() { __bu_log "$BU_VIOLET" "$*"; }
+fi
+fi
+fi
+
