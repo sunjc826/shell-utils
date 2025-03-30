@@ -26,12 +26,17 @@ bu_def_source()
     # Redefine source for the duration of the function
     source()
     {
-        if [[ -n "${BU_SOURCE_ONCE_CACHE[$BU_CURRENT_SCRIPT_KEY]}" ]]
+        # We assume all bu entrypoints to be uniquely named
+        # shellcheck disable=SC2317
+        bu_basename "$1"
+        # shellcheck disable=SC2317
+        if [[ -n "${BU_SOURCE_ONCE_CACHE[$BU_RV]}" ]]
         then
             return 0
         fi
-
-        BU_SOURCE_ONCE_CACHE[$BU_CURRENT_SCRIPT_KEY]=1
+        # shellcheck disable=SC2317
+        BU_SOURCE_ONCE_CACHE[$BU_RV]=1
+        # shellcheck disable=SC2317
         builtin source "$@"
     }
 }
