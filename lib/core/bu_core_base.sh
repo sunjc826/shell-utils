@@ -1638,7 +1638,7 @@ bu_run()
 # MARK: tmux
 bu_tmux_is_active()
 {
-    [[ -n "$TMUX" && "$TERM" == screen* ]]
+    [[ -n "$TMUX" && ("$TERM" == screen* || "$TERM" == tmux*) ]]
 }
 
 
