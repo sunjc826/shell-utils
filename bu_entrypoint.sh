@@ -11,9 +11,12 @@ source ./config/bu_config_dynamic.sh
 
 bu_source_user_defined_configs
 
-bu_source_user_defined_pre_init_callbacks
 
 source ./lib/core/bu_core_base.sh --__bu-once
+
+bu_source_user_defined_pre_init_callbacks
+
+source ./lib/core/bu_core_init.sh
 
 popd &>/dev/null
 

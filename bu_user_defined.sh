@@ -5,7 +5,6 @@ source "$BU_NULL"
 bu_source_user_defined_configs()
 {
     bu_source_multi_once "${BU_USER_DEFINED_STATIC_CONFIGS[@]}"
-
     bu_source_multi "${BU_USER_DEFINED_DYNAMIC_CONFIGS[@]}"
 }
 

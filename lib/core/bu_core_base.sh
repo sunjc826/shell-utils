@@ -1649,20 +1649,53 @@ bu_spawn()
 
 
 # MARK: VSCode
+BU_ENV_IS_WSL=
+read -r < /proc/version
+if [[ "$REPLY" = *Microsoft* ]]
+then
+    BU_ENV_IS_WSL=true
+else
+    BU_ENV_IS_WSL=false
+fi
+
 bu_vscode_find_latest_server()
 {
-    ls -dt "$HOME"/.vscode-server/cli/servers/Stable-* | head -n 1
+    if "$BU_ENV_IS_WSL"
+    then
+        ls -dt "$HOME"/.vscode-server/bin/* | head -n 1
+    else
+        ls -dt "$HOME"/.vscode-server/cli/servers/Stable-* | head -n 1
+    fi
 }
 
 bu_vscode_find_latest_socket()
 {
-    ls -t /run/user/"$UID"/vscode-ipc* | head -n 1
+    if "$BU_ENV_IS_WSL"
+    then
+        ls -t /tmp/vscode-ipc* | head -n 1
+    else
+        ls -t /run/user/"$UID"/vscode-ipc* | head -n 1
+    fi
 }
-
 
 bu_vscode_is_socket_inactive()
 {
-    timeout 0.2 code --status |& grep -q ENOENT
+    local grep_result
+    if ! grep_result=$(timeout 1 code --status |& grep --only-matching --max-count=1 -E 'Version|ENOENT')
+    then
+        return 1
+    fi
+    case "$grep_result" in
+    Version)
+        return 0
+        ;;
+    ENOENT)
+        return 1
+        ;;
+    *)
+        return 1
+        ;;
+    esac
 }
 
 # MARK: Environment/Path utilities
@@ -1802,8 +1835,8 @@ __bu_bind_fzf_autocomplete()
 }
 
 declare -A -g BU_KEY_BINDINGS=(
-    [\ee]=__bu_bind_edit
-    [\eg]=__bu_bind_toggle_gdb
+    ['\ee']=__bu_bind_edit
+    ['\eg']=__bu_bind_toggle_gdb
 )
 bu_preinit_register_user_defined_key_binding()
 {

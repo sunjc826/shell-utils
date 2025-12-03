@@ -207,8 +207,17 @@ bu_def_source()
 
         # TODO pushd handling
 
-        # shellcheck disable=SC2317
-        builtin source "$source_filepath" "$@"
+        # Our source implementations allow functions too
+        # Functions are in fact more similar to sourcing scripts than invoking a script in a new shell
+        case "$(type -t "$source_filepath" 2>/dev/null)" in
+        function)
+            "$source_filepath" "$@"
+            ;;
+        *)
+            # shellcheck disable=SC2317
+            builtin source "$source_filepath" "$@"
+            ;;
+        esac
     }
 }
 

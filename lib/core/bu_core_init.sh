@@ -9,11 +9,18 @@ __bu_init_keybindings()
         local shortcut_key
         for shortcut_key in "${!BU_KEY_BINDINGS[@]}"
         do
+            bu_log_debug "Mapping $shortcut_key to ${BU_KEY_BINDINGS[$shortcut_key]}"
             bind -x '"'"$shortcut_key"'": '"${BU_KEY_BINDINGS[$shortcut_key]}"
         done
     fi
 }
 
+# Technically, WSL code setup isn't needed, 
+# for e.g. I see /mnt/c/Users/sunjc/AppData/Local/Programs/Microsoft VS Code/bin/code
+# when I enter wsl.
+# Though note that the code CLI binary in /mnt/c and 
+# the vscode server code CLI binary in ~/.vscode-server
+# are 2 different binaries, though with similar options.
 __bu_init_vscode()
 {
     if [[ -n "$VSCODE_IPC_HOOK_CLI" && -n "$VSCODE_GIT_ASKPASS_NODE" ]]
@@ -42,6 +49,7 @@ __bu_init_vscode()
             fi
         fi
         export VSCODE_IPC_HOOK_CLI="$BU_TMP_DIR"/VSCODE_IPC_HOOK_CLI.sock
+        echo VSCODE_IPC_HOOK_CLI=$VSCODE_IPC_HOOK_CLI
         if [[ -e "$BU_TMP_DIR"/vscode_server_instance/server/bin/remote-cli ]]
         then
             # Remote SSH
@@ -49,7 +57,7 @@ __bu_init_vscode()
         elif [[ -e "$BU_TMP_DIR"/vscode_server_instance/bin/remote-cli ]]
         then
             # WSL
-            bu_env_append_path "$BU_TMP_DIR"/vscode_server_instance/bin/remote-cli
+            bu_env_prepend_path "$BU_TMP_DIR"/vscode_server_instance/bin/remote-cli
         else
             bu_log_err Cannot find code binary
             return 1
@@ -68,6 +76,8 @@ __bu_init_vscode()
                 bu_log_info code cli initialized
             fi
         fi
+
+        bu_ext_source "$(code --locate-shell-integration-path bash)"
     fi
 }
 
