@@ -193,6 +193,7 @@ bu_def_source()
         # shellcheck disable=SC2317
         if "$is_once" && "${BU_SOURCE_ONCE_CACHE[$basename]:-false}"
         then
+            echo "$basename has already been sourced, skipping." >&2
             return 0
         fi
 
@@ -202,7 +203,7 @@ bu_def_source()
         # TODO pushd handling
 
         # shellcheck disable=SC2317
-        builtin source "$@"
+        builtin source "$source_filepath" "$@"
     }
 }
 
@@ -235,3 +236,5 @@ bu_ext_source()
         source "$@"
     fi
 }
+
+bu_def_source
