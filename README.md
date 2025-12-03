@@ -29,4 +29,5 @@ The way bash-language-server handles comments (as of writing) is that it wraps t
 Variables:
 `BU_RET` is used to return strings and non-associative arrays. Depending on the function, it is a scalar or an array.
 Use `BU_` to namespace global variables. Use `bu_` to namespace functions. BU stands for Bash Utils.
+The `BU_USER_DEFINED_` prefix indicates variables that are not defined anywhere within shell-utils. It is expected that the user defines them externally.
 

@@ -237,4 +237,21 @@ bu_ext_source()
     fi
 }
 
+bu_source_multi_once()
+{
+    local filepath
+    for filepath
+    do
+        source "$filepath" --__bu-once
+    done
+}
+bu_source_multi()
+{
+    local filepath
+    for filepath
+    do
+        source "$filepath"
+    done
+}
+
 bu_def_source
