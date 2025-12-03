@@ -1647,3 +1647,168 @@ bu_spawn()
     :
 }
 
+
+# MARK: VSCode
+bu_vscode_find_latest_server()
+{
+    ls -dt "$HOME"/.vscode-server/cli/servers/Stable-* | head -n 1
+}
+
+bu_vscode_find_latest_socket()
+{
+    ls -t /run/user/"$UID"/vscode-ipc* | head -n 1
+}
+
+
+bu_vscode_is_socket_inactive()
+{
+    timeout 0.2 code --status |& grep -q ENOENT
+}
+
+# MARK: Environment/Path utilities
+bu_env_whichfunc()
+{
+    shopt -s extdebug
+    declare -F "$1"
+    shopt -u extdebug
+}
+
+__bu_env_append_generic_path()
+{
+    local -n __path_var=$1
+    local path_to_append=$2
+    if [[ ":$__path_var:" != *":$path_to_append:"* ]]
+    then
+        __path_var=${__path_var:+$__path_var:}$path_to_append
+    fi
+}
+
+__bu_env_prepend_generic_path()
+{
+    local -n __path_var=$1
+    local path_to_prepend=$2
+    if [[ ":$__path_var:" != *":$path_to_prepend:"* ]]
+    then
+        __path_var=$path_to_prepend${__path_var:+:$__path_var}
+    fi
+}
+
+__bu_env_prepend_generic_path_force()
+{
+    local -n __path_var=$1
+    local path_to_prepend=$2
+    __path_var=$path_to_prepend${__path_var:+:$__path_var}
+}
+
+bu_env_append_path()
+{
+    __bu_env_append_generic_path PATH "$1"
+}
+
+bu_env_prepend_path()
+{
+    __bu_env_prepend_generic_path PATH "$1"
+}
+
+bu_env_prepend_path_force()
+{
+    __bu_env_prepend_generic_path_force PATH "$1"
+}
+
+bu_env_append_ld_library_path()
+{
+    __bu_env_append_generic_path LD_LIBRARY_PATH "$1"
+}
+
+bu_env_prepend_pythonpath()
+{
+    __bu_env_prepend_generic_path PYTHONPATH "$1"
+}
+
+bu_env_append_pythonpath()
+{
+    __bu_env_append_generic_path PYTHONPATH "$1"
+}
+
+bu_env_prepend_path_force()
+{
+    __bu_env_prepend_generic_path_force PYTHONPATH "$1"
+}
+
+__bu_env_remove_from_generic_path()
+{
+    local -n __path_var=$1
+    local path_to_remove=$2
+    __path_var=${__path_var//:$path_to_remove:/:} # delete instances in the middle
+    __path_var=${__path_var/#$path_to_remove:/} # delete instance at the beginning
+    __path_var=${__path_var%:$path_to_remove/} # delete instance at the end
+}
+
+bu_env_remove_from_path()
+{
+    __bu_env_remove_from_generic_path PATH "$1"
+}
+
+bu_env_remove_from_ld_library_path()
+{
+    __bu_env_remove_from_generic_path LD_LIBRARY_PATH "$1"
+}
+
+bu_env_remove_from_pythonpath()
+{
+    __bu_env_remove_from_generic_path PYTHONPATH "$1"
+}
+
+# MARK: Pretty printers
+bu_print_var()
+{
+    local -n __bu_print_var_name=$1
+    local key
+    local value
+    printf "name: %s\nvalue:\n" "$1"
+    for key in "${__bu_print_var_name[@]}"
+    do
+        printf "  [%s]=%s\n" "$key" "${__bu_print_var_name[$key]}"
+    done
+}
+
+# MARK: Pre-Init utilities
+__bu_bind_edit()
+{
+    local editor=${EDITOR:-vim}
+    local tmp_file=$(mktemp).sh
+    printf '%s\n' "$READLINE_LINE" > "$tmp_file"
+    $editor "$tmp_file"
+    READLINE_LINE=$(< "$tmp_file")
+    READLINE_POINT=${#READLINE_LINE}
+    rm -f "$tmp_file"
+}
+
+__bu_bind_toggle_gdb()
+{
+    local words=()
+    read -a words <<<"$READLINE_LINE"
+    case "$words" in
+    gdb) words=("${words[@]:3}") ;;
+    '') return ;;
+    *) words=(gdb "${words[0]}" --args "${words[@]}")
+    esac
+    READLINE_LINE=${words[*]}
+}
+
+__bu_bind_fzf_autocomplete()
+{
+    :
+}
+
+declare -A -g BU_KEY_BINDINGS=(
+    [\ee]=__bu_bind_edit
+    [\eg]=__bu_bind_toggle_gdb
+)
+bu_preinit_register_user_defined_key_binding()
+{
+    local key=$1
+    local binding=$2
+    BU_KEY_BINDINGS[$key]=$binding
+}
+

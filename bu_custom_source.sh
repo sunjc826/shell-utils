@@ -2,6 +2,11 @@
 # define a custom source func ahead of other functions
 # e.g. to ensure the correctness of --__bu-once
 
+BU_DIR=$PWD
+BU_LIB_BIN_DIR=$BU_DIR/lib/bin
+BU_LIB_CORE_DIR=$BU_DIR/lib/core
+
+
 # ```
 # Traditionally, bash has 3 states for a scalar variable
 # 1. Undefined: `[[ ! -v VAR ]]` will be true

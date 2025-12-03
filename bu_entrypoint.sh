@@ -1,3 +1,8 @@
+case "${BASH_SOURCE}" in
+*/*) pushd "${BASH_SOURCE%/*}" &>/dev/null ;; # Enter the current directory
+*) pushd . &>/dev/null ;; # This seems like duplicate work but we need to match the popd later
+esac
+
 source ./bu_custom_source.sh --__bu-once
 source ./bu_user_defined.sh --__bu-once
 
@@ -6,13 +11,10 @@ source ./config/bu_config_dynamic.sh
 
 bu_source_user_defined_configs
 
-# case "${BASH_SOURCE}" in
-# */*) pushd "${BASH_SOURCE%/*}"/lib/core &>/dev/null ;;
-# *) pushd ./lib/core;;
-# esac
+bu_source_user_defined_pre_init_callbacks
 
 source ./lib/core/bu_core_base.sh --__bu-once
 
-# popd &>/dev/null
+popd &>/dev/null
 
 bu_source_user_defined_post_entrypoint_callbacks
