@@ -18,3 +18,5 @@ source ./lib/core/bu_core_base.sh --__bu-once
 popd &>/dev/null
 
 bu_source_user_defined_post_entrypoint_callbacks
+
+bu_log_info "Bash utils: fully set up"
