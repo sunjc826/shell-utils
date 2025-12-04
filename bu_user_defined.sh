@@ -19,3 +19,13 @@ bu_source_user_defined_post_entrypoint_callbacks()
     bu_source_multi_once "${BU_USER_DEFINED_STATIC_POST_ENTRYPOINT_CALLBACKS[@]}"
     bu_source_multi "${BU_USER_DEFINED_DYNAMIC_POST_ENTRYPOINT_CALLBACKS[@]}"
 }
+
+bu_user_defined_convert_command_to_key()
+{
+    local command=$1
+    BU_RET=command-$command # default conversion
+    if [[ -n "$BU_USER_DEFINED_COMVERT_COMPLETION_COMMAND_TO_KEY" ]]
+    then
+        "$BU_USER_DEFINED_COMVERT_COMPLETION_COMMAND_TO_KEY" "$command"
+    fi
+}

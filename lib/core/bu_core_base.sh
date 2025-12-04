@@ -9,82 +9,6 @@ source "$BU_NULL"
 # shellcheck source=../../config/bu_config_dynamic.sh
 source "$BU_NULL"
 
-# MARK: Conversion utilities
-
-# ```
-# *Description*:
-# Execute a command and capture its output into the global variable `BU_RET`,
-# then print `BU_RET` to stdout in the specified format.
-#
-# *Params*:
-# - `--str` or `--list`: Specify the output format. `--str` prints `BU_RET` as a single string,
-#   while `--list` prints each element of `BU_RET` on a new line. Default is `--list`.
-# - `...`: Command to execute
-#
-# *Returns*:
-# - Exit code of the executed command
-# - `stdout`: Formatted output of `BU_RET` from the executed command
-#
-# *Examples*:
-# ```bash
-# some_command() { BU_RET=hello; }
-# bu_ret_to_stdout --str some_command  # stdout=hello
-#
-# some_command2() { BU_RET=(hello world); }
-# # Note that --str will only print the first element of the array
-# bu_ret_to_stdout --str some_command2  # stdout=hello
-# bu_ret_to_stdout --list some_command2  # stdout=hello\nworld\n
-# ```
-bu_ret_to_stdout()
-{
-    local mode=list
-    case "$1" in
-    --str|--list)
-        mode=${1#--}
-        ;;
-    -*)
-        echo "Unrecognized option $1" >&2
-        return 1
-        ;;
-    esac
-    shift
-
-    "$@"
-    case "$mode" in
-    str)
-        printf "%s" "$BU_RET"
-        ;;
-    list)
-        printf "%s\n" "${BU_RET[@]}" 
-        ;;
-    esac
-}
-
-
-bu_stdout_to_ret()
-{
-    local mode=list
-    case "$1" in
-    --str|--list)
-        mode=${1#--}
-        ;;
-    -*)
-        echo "Unrecognized option $1" >&2
-        return 1
-        ;;
-    esac
-    shift
-
-    case "$mode" in
-    str)
-        BU_RET=$("$@")
-        ;;
-    list)
-        BU_RET=($("$@"))
-        ;;
-    esac
-}
-
 # MARK: Filesystem utilities
 
 # ```
@@ -116,7 +40,8 @@ bu_mkdir()
     fi
 }
 
-BU_TMP_VAR_DIR=$BU_TMP_DIR/var
+BU_BASE_PROC_DIR=$BU_TMP_DIR/proc
+BU_PROC_DIR=$BU_BASE_PROC_DIR/$$
 BU_CACHE_DIR=$BU_TMP_DIR/cache
 BU_NAMED_CACHE_DIR=$BU_CACHE_DIR/named
 BU_HASHED_CACHE_DIR=$BU_CACHE_DIR/hashed
@@ -124,7 +49,7 @@ BU_LOG_DIR=$BU_TMP_DIR/log
 BU_LAST_RUN_CMDS=$BU_LOG_DIR/last_run_cmds.sh
 
 bu_mkdir \
-    "$BU_TMP_VAR_DIR" \
+    "$BU_BASE_PROC_DIR" \
     "$BU_NAMED_CACHE_DIR" \
     "$BU_HASHED_CACHE_DIR" \
     "$BU_LOG_DIR"
@@ -132,20 +57,142 @@ bu_mkdir \
 # Variables prefixed with BU_PROC_ are process specific
 # BU_PROC_FIFO is allows reading from stdout of a command without using a subshell
 # Iirc, bash 5 will support subshell-less process substitution, but until then, this is a workaround
-BU_PROC_FIFO="$BU_TMP_VAR_DIR"/$$.fifo
+BU_PROC_FIFO=$BU_PROC_DIR/scratch.fifo
 # Use an fd to further reduce overhead
 BU_PROC_FIFO_FD=
 # Probably have some kind of cleanup policy
-if ! [[ -e "$BU_PROC_FIFO" ]]
+if [[ ! -e "$BU_PROC_DIR" ]]
+then
+    mkdir "$BU_PROC_DIR"
+fi
+if [[ ! -e "$BU_PROC_FIFO" ]]
 then
     mkfifo "$BU_PROC_FIFO"
     exec {BU_PROC_FIFO_FD}<>"$BU_PROC_FIFO"
 fi
-bu_read_proc()
+
+# MARK: Conversion utilities
+
+# ```
+# *Description*:
+# Execute a command and capture its output into the global variable `BU_RET`,
+# then print `BU_RET` to stdout in the specified format.
+#
+# *Params*:
+# - `--str` or `--spaces`: Specify the output format. `--str` prints `BU_RET` as a single string,
+#   while `--spaces` prints each element of `BU_RET` on a new line. Default is `--spaces`.
+# - `...`: Command to execute
+#
+# *Returns*:
+# - Exit code of the executed command
+# - `stdout`: Formatted output of `BU_RET` from the executed command
+#
+# *Examples*:
+# ```bash
+# some_command() { BU_RET=hello; }
+# bu_ret_to_stdout --str some_command  # stdout=hello
+#
+# some_command2() { BU_RET=(hello world); }
+# # Note that --str will only print the first element of the array
+# bu_ret_to_stdout --str some_command2  # stdout='hello'
+# bu_ret_to_stdout --spaces some_command2 # stdout='hello world '
+# bu_ret_to_stdout --lines some_command2  # stdout='hello\nworld\n'
+# ```
+bu_ret_to_stdout()
 {
-    BU_RET=
-    "$@" >&"$BU_PROC_FIFO_FD" || return 1
-    read -r BU_RET <&"$BU_PROC_FIFO_FD"
+    local mode=str
+    case "$1" in
+    --str|--spaces|--lines)
+        mode=${1#--}
+        ;;
+    -*)
+        echo "Unrecognized option $1" >&2
+        return 1
+        ;;
+    esac
+    shift
+
+    "$@"
+    case "$mode" in
+    str)
+        printf '%s' "$BU_RET"
+        ;;
+    spaces)
+        printf '%s ' "${BU_RET[@]}"
+        ;;
+    lines)
+        printf '%s\n' "${BU_RET[@]}" 
+        ;;
+    esac
+}
+
+
+bu_stdout_to_ret()
+{
+    local mode=str
+    local is_proc=false
+    local outparam_name=BU_RET
+    local shift_by
+    while (($#))
+    do
+        shift_by=1
+        case "$1" in
+        --str|--spaces|--lines)
+            mode=${1#--}
+            ;;
+        --proc)
+            is_proc=true
+            ;;
+        -o|--outparam)
+            outparam_name=$2
+            shift_by=2
+            ;;
+        -*)
+            echo "Unrecognized option $1" >&2
+            return 1
+            ;;
+        *)
+            break
+            ;;
+        esac
+        shift "$shift_by"
+    done
+
+    local -n outparam=$outparam_name
+    case "$mode" in
+    str)
+        if "$is_proc"
+        then
+            outparam=
+            "$@" >&"$BU_PROC_FIFO_FD" || return 1
+            read -r "$outparam_name" <&"$BU_PROC_FIFO_FD"  
+        else
+            outparam=$("$@")
+        fi
+        ;;
+    spaces)
+        # Note that the behavior is slightly different between is_proc true and false
+        # For multiline output, is_proc=true will only process the first line
+        if "$is_proc"
+        then
+            outparam=()
+            "$@" >&"$BU_PROC_FIFO_FD" || return 1
+            read -r -a "$outparam_name" <&"$BU_PROC_FIFO_FD"
+        else
+            outparam=($("$@"))
+        fi
+        ;;
+    lines)
+        if "$is_proc"
+        then
+            outparam=()
+            "$@" >&"$BU_PROC_FIFO_FD" || return 1
+            mapfile -t "$outparam_name" <&"$BU_PROC_FIFO_FD"
+        else
+            mapfile -t "$outparam_name" < <("$@")
+        fi
+        ;;
+    esac
 }
 
 # ```
@@ -220,6 +267,19 @@ bu_cat_arr_append()
     local ret=${2:-BU_RET}
     mapfile -t <"$file"
     eval "$ret"+=\( \"\${MAPFILE[@]}\" \)
+}
+
+# MARK: Shell symbol helpers
+bu_symbol_is_function()
+{
+    bu_stdout_to_ret --proc type -t "$1"
+    [[ "$BU_RET" = function ]]
+}
+
+bu_symbol_is_file()
+{
+    bu_stdout_to_ret --proc type -t "$1"
+    [[ "$BU_RET" = file ]]
 }
 
 # MARK: Caching functions
@@ -301,7 +361,7 @@ bu_cached_keyed_execute()
 }
 
 # MARK: Colors
-function __bu_setup_tput()
+__bu_setup_tput()
 {
     local -n outvar=$1
     shift
