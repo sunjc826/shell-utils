@@ -641,7 +641,7 @@ __bu_help()
     echo "The following ${BU_TPUT_UNDERLINE}key bindings${BU_TPUT_NO_UNDERLINE} are available"
     echo
 
-    for key in $(__bu_sort_keys <<<"${BU_KEY_BINDINGS[*]}")
+    for key in $(__bu_sort_keys <<<"${!BU_KEY_BINDINGS[*]}")
     do
         value=${BU_KEY_BINDINGS[$key]}
         printf "    %s -> %s\n" "$key" "$value"
