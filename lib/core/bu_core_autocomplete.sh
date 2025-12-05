@@ -218,8 +218,10 @@ __bu_autocomplete_compreply_append_find_files()
     COMPREPLY+=("${candidates[@]}")
 }
 
-# MARK: Completion funcs
-
+# MARK: Completion 
+BU_AUTOCOMPLETE_EXIT_CODE_SUCCESS=0
+BU_AUTOCOMPLETE_EXIT_CODE_FAIL=1
+BU_AUTOCOMPLETE_EXIT_CODE_RETRY=124
 __bu_autocomplete_completion_func_master_helper()
 {
     local completion_command_path=$1
@@ -235,7 +237,7 @@ __bu_autocomplete_completion_func_master_helper()
     local terminator
     local -a sub_args
     local -a opt_cur_word=("$cur_word")
-    local BU_AUTOCOMPLETE_IS_RETRY=false
+    local exit_code=$BU_AUTOCOMPLETE_EXIT_CODE_SUCCESS
     while ((i<${#args[@]}))
     do
         shift_by=1
@@ -295,24 +297,24 @@ __bu_autocomplete_completion_func_master_helper()
             esac
             shift_by=$(( 1 + offset ))
             ;;
-        --stdout)
-            for (( offset = 1; i + offset < "${#args[@]}"; offset++ ))
-            do
-                if [[ "${offset[i + offset]}" = stdout-- ]]
-                then
-                    break
-                fi
-            done
-            COMPREPLY+=($("${args[@]:idx+1:offset-1}" "$cur_word"))
-            shift_by=
-            ;;
         *)
-            COMPREPLY+=("${args[i]}")
+            bu_user_defined_autocomplete_lazy "${args[@]:i}"
+            case $? in
+            "$BU_AUTOCOMPLETE_EXIT_CODE_SUCCESS")
+                ;;
+            "$BU_AUTOCOMPLETE_EXIT_CODE_RETRY")
+                exit_code=$BU_AUTOCOMPLETE_EXIT_CODE_RETRY
+                ;;
+            "$BU_AUTOCOMPLETE_EXIT_CODE_FAIL")
+                # If all else fails, treat the arg like a literal
+                COMPREPLY+=("${args[i]}")
+                ;;
+            esac
             ;;
         esac
         : $(( i += shift_by ))
     done
-    BU_RET=$BU_AUTOCOMPLETE_IS_RETRY
+    return "$exit_code"
 }
 
 __bu_autocomplete_completion_func_master_impl()
@@ -340,11 +342,11 @@ __bu_autocomplete_completion_func_master_impl()
     set +ex
 
     __bu_autocomplete_completion_func_master_helper "$completion_command_path" "$cur_word" "$prev_word" "${lazy_autocomplete_args[@]}"
-    local is_retry=$BU_RET
+    local exit_code=$?
 
     bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
 
-    if "$is_retry"
+    if ((exit_code == "$BU_AUTOCOMPLETE_EXIT_CODE_RETRY"))
     then
         compopt -o nospace
     elif ((${#COMPREPLY} == 1)) && [[ -n "${tail:0:1}" ]]
@@ -358,7 +360,43 @@ __bu_autocomplete_completion_func_master_impl()
 
 bu_autocomplete_completion_func_master()
 {
-    :
+    local completion_command=$1
+    local cur_word=$2
+    local prev_word=$3
+    case "$completion_command" in
+    bu);;
+    *) return 1;;
+    esac
+
+    COMPREPLY=()
+    if ((COMP_CWORD == 1))
+    then
+        bu_compgen -W "${BU_USER_DEFINED_COMMANDS[*]}" -- "$cur_word"
+        return 0
+    fi
+
+    local arg1=${COMP_WORDS[1]}
+    local function_or_script_path=${BU_USER_DEFINED_COMMANDS[$arg1]}
+    if [[ -z "$function_or_script_path" ]]
+    then
+        return 1
+    fi
+
+    local comp_cword=$((COMP_CWORD - 1))
+    local comp_words=(
+        "$function_or_script_path"
+        "${COMP_WORDS[@]:2}"
+    )
+    local tail
+    if [[ "${COMP_LINE:COMP_POINT-1:1}" = ' ' ]]
+    then
+        tail=${COMP_WORDS[COMP_CWORD]}
+    else
+        tail=${COMP_LINE:COMP_POINT}
+        tail=${tail%% *}
+    fi
+
+    __bu_autocomplete_completion_func_master_impl "$function_or_script_path" "$cur_word" "$prev_word" "$comp_cword" "$tail" "${comp_words[@]}"
 }
 
 bu_autocomplete_completion_func_cached()
@@ -399,5 +437,155 @@ bu_autocomplete_completion_func_default()
 }
 
 
+# MARK: Top-level CLI
+__bu_sort_keys()
+{
+    tr ' ' '\n' | sort
+}
 
+__bu_master_command_properties()
+{
+    local bu_command=$1
+    local function_or_script_path=${BU_USER_DEFINED_COMMANDS[$bu_command]}
+    local properties="${BU_USER_DEFINED_COMMAND_PROPERTIES[$bu_command]}"
+    if [[ -z "$properties" ]]
+    then
+        if bu_symbol_is_function "$function_or_script_path"
+        then
+            properties=function
+        elif [[ -x "$function_or_script_path" ]]
+        then
+            properties=execute
+        elif [[ -f "$function_or_script_path" ]]
+        then
+            properties=source
+        else
+            properties=no-default-found
+        fi
+    fi
+    BU_RET=$properties
+}
+
+__bu_help()
+{
+    local master_command=$1
+    echo "${BU_TPUT_BOLD}${BU_TPUT_DARK_BLUE}Help for ${master_command}${BU_TPUT_RESET}"
+    echo "${master_command} is the Bash CLI implemented by shell-utils"
+
+    local key
+    local value
+
+    local -A executable_scripts=()
+    local -A source_scripts=()
+    local -A functions=()
+    for key in "${!BU_USER_DEFINED_COMMANDS[@]}"
+    do
+        value=${BU_USER_DEFINED_COMMANDS[$key]}
+        __bu_master_command_properties "$key"
+        case "$properties" in
+        execute)
+            executable_scripts[$key]=$value
+            ;;
+        source)
+            source_scripts[$key]=$value
+            ;;
+        function)
+            functions[$key]=$value
+            ;;
+        esac
+    done
+
+
+    echo
+    echo "The following commands using ${BU_TPUT_UNDERLINE}a new shell context${BU_TPUT_RESET} are available"
+    echo
+
+    for key in $(__bu_sort_keys <<<"${!executable_scripts[*]}")
+    do
+        value=${executable_scripts[$key]}
+        printf "    ${BU_TPUT_BOLD}%-30s${BU_TPUT_RESET}    %s\n" "$key" "$value"
+    done
+
+    echo
+    echo "The following commands using ${BU_TPUT_UNDERLINE}the current shell context${BU_TPUT_RESET} are available"
+    echo
+    
+    for key in $(__bu_sort_keys <<<"${!source_scripts[*]}")
+    do
+        value=${source_scripts[$key]}
+        printf "    ${BU_TPUT_BOLD}%-30s${BU_TPUT_RESET}    %s\n" "$key" "$value"
+    done
+
+    echo
+    echo "The following functions are available"
+    echo
+
+    for key in $(__bu_sort_keys <<<"${!functions[*]}")
+    do
+        value=${functions[$key]}
+        printf "    ${BU_TPUT_BOLD}%-30s${BU_TPUT_RESET}    %s\n" "$key" "$value"
+    done
+
+    echo
+    echo "The following ${BU_TPUT_UNDERLINE}key bindings${BU_TPUT_NO_UNDERLINE} are available"
+    echo
+
+    for key in $(__bu_sort_keys <<<"${BU_KEY_BINDINGS[*]}")
+    do
+        value=${BU_KEY_BINDINGS[$key]}
+        printf "    %s -> %s\n" "$key" "$value"
+    done
+} >&2
+
+bu()
+{
+    if ((!$#))
+    then
+        bu_log_warn "No arguments specified, printing help"
+        __bu_help bu
+        return
+    fi
+
+    if (( ${#BASH_SOURCE[@]} == 1 ))
+    then
+        {
+            printf "%q " bu "$@"
+            echo
+        } >> "$BU_TMP_DIR"/bu_history.sh
+        mapfile -t BU_RET <"$BU_TMP_DIR"/bu_history.sh
+        if (( "${#BU_RET[@]}" > 1000 ))
+        then
+            bu_sync_cycle_file "$BU_TMP_DIR"/bu_history.sh false 500 true
+        fi
+    fi
+
+    local bu_command=$1
+    shift
+    local remaining_options=("$@")
+    local function_or_script_path=${BU_USER_DEFINED_COMMANDS[$bu_command]}
+    __bu_master_command_properties "$bu_command"
+    local properties=$BU_RET
+    local exit_code=0
+    case "$properties" in
+    execute)
+        "$function_or_script_path" "${remaining_options[@]}"
+        exit_code=$?
+        ;;
+    source)
+        builtin source "$function_or_script_path" "${remaining_options[@]}"
+        exit_code=$?
+        ;;
+    function)
+        "$function_or_script_path" "${remaining_options[@]}"
+        exit_code=$?
+        ;;
+    *)
+        bu_log_err "Invalid command[$bu_command] properties[$properties]"
+        __bu_help bu
+        return 1
+        ;;
+    esac
+
+    return "$exit_code"
+}
 

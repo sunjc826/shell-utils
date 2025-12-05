@@ -1852,6 +1852,14 @@ bu_env_remove_from_pythonpath()
     __bu_env_remove_from_generic_path PYTHONPATH "$1"
 }
 
+bu_env_rename_func()
+{
+    local old_func_name=$1
+    local new_func_name=$2
+
+    eval "$(declare -f "$old_func_name" | sed -r "s/\b$old_func_name\b/$new_func_name/g")"
+}
+
 # MARK: Pretty printers
 bu_print_var()
 {
