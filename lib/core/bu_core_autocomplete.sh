@@ -436,6 +436,117 @@ bu_autocomplete_completion_func_default()
     return 124
 }
 
+# Taken from stackoverflow and github gist
+__bu_terminal_get_pos()
+{
+    exec </dev/tty
+    local col row oldstty=$(stty -g)
+    stty raw -echo min 0
+    printf '%b' '\033[6n' >/dev/tty
+    IFS='[;' read -d R _ row col </dev/tty
+    stty "$oldstty"
+    BU_RET=$((row-1))
+}
+__bu_fzf_current_pos()
+{
+    local lines=$(tput lines)
+    __bu_terminal_get_pos
+    local row=$BU_RET
+    local halfway=$((lines / 2))
+    local start_row=$((lines - row))
+    export FZF_DEFAULT_OPTS
+
+    # Start fzf from the current row
+    if (( row < halfway ))
+    then
+        if (( row == 0 ))
+        then
+            row=1
+        fi
+        FZF_DEFAULT_OPTS+=" --reverse --margin $((row - 1)),0,0"
+    else
+        if (( start_row == 1 ))
+        then
+            start_row=0
+        fi
+        FZF_DEFAULT_OPTS+=" --no-reverse --margin 0,0,$start_row"
+    fi
+    fzf --tac "$@"
+}
+
+__bu_bind_fzf_autocomplete_impl()
+{
+    local command_line_front=$1
+    local command_line_back=$2
+    local move_cursor_to_end=$3
+    local command_line=($command_line_front)
+    if (( !${#command_line[*]} ))
+    then
+        return 0
+    fi
+
+    local command_line_escaped=$(printf '%q ' "${command_line[@]}")
+    local opt_space=
+    # We need to append a space if we swallowed a space
+    if [[ "${command_line_front:${#command_line_front}-1}" = ' ' ]]
+    then
+        command_line+=("")
+        opt_space="''"
+    fi
+
+    local select_command
+    if selected_command=$(
+        bu_autocomplete_print_autocompletions "${command_line[@]}" 2>/dev/null | uniq | __bu_fzf_current_pos --exact +s --sync -q "${command_line[-1]}" --header "$ ${command_line[*]}..."
+    ) && [[ -n "$selected_command" ]]
+    then
+        # Bash seems to be bugged sometimes when READLINE_LINE is modified multiple times
+        # So we use these temporary variables, and set READLINE_LINE, READLINE_POINT in one shot at the end
+        local readline_line
+        local readline_point
+        command_line[-1]=$selected_command
+        if [[ "${command_line_back:0:1}" != ' ' ]]
+        then
+            local len=${#command_line_back}
+            command_line_back=${command_line_back#* }
+            if [[ ${#command_line_back} = "$len" ]]
+            then
+                command_line_back=
+            fi
+        fi
+        if [[ "${readline_line:${#readline_line}-1}" != ' ' && "${command_line_back:0:1}" != ' ' ]]
+        then
+            readline_line+=' '
+        fi
+        readline_point=${#readline_line}
+        readline_line+=$command_line_back
+        if "$move_cursor_to_end"
+        then
+            if [[ "${readline_line:${#readline_line}-1}" != ' ' && "${command_line_back:0:1}" != ' ' ]]
+            then
+                readline_line+=' '
+            fi
+            readline_point=${#readline_line}
+        fi
+        READLINE_LINE=$readline_line
+        READLINE_POINT=$readline_point
+    fi
+}
+
+__bu_bind_fzf_autocomplete()
+{
+    __bu_bind_fzf_autocomplete_impl "${READLINE_LINE:0:$READLINE_POINT}" "${READLINE_LINE:$READLINE_POINT}" false
+}
+
+__bu_bind_fzf_history()
+{
+    touch "$BU_TMP_DIR"/bu_history.sh
+    local history_result
+    if history_result=$(cat "$BU_TMP_DIR"/bu_history.sh | __bu_fzf_current_pos --exact +s --sync --header 'bu history')
+    then
+        READLINE_LINE=$history_result
+        READLINE_POINT=${#READLINE_LINE}
+    fi
+}
 
 # MARK: Top-level CLI
 __bu_sort_keys()

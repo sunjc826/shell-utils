@@ -1897,14 +1897,11 @@ __bu_bind_toggle_gdb()
     READLINE_LINE=${words[*]}
 }
 
-__bu_bind_fzf_autocomplete()
-{
-    :
-}
-
 declare -A -g BU_KEY_BINDINGS=(
     ['\ee']=__bu_bind_edit
     ['\eg']=__bu_bind_toggle_gdb
+    ['\ea']=__bu_bind_fzf_history
+    ['\ex']=__bu_bind_fzf_autocomplete
 )
 bu_preinit_register_user_defined_key_binding()
 {
