@@ -2,6 +2,11 @@
 source "$BU_NULL"
 
 # MARK: Initialization logic
+__bu_init_env()
+{
+    bu_env_append_path "$BU_LIB_BIN_DIR"
+}
+
 __bu_init_keybindings()
 {
     if [[ $- == *i* ]]
@@ -93,6 +98,7 @@ __bu_init_autocomplete()
 
 bu_init()
 {
+    __bu_init_env
     __bu_init_keybindings
     __bu_init_vscode
     __bu_init_tmux

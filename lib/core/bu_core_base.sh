@@ -440,6 +440,8 @@ __bu_log()
     local basename=$BU_RET
     # 7 because SUCCESS is the longest log prefix
     printf -v log_prefix '%-7s' "$log_prefix"
+    # echo ${FUNCNAME[@]}
+    # echo ${BASH_LINENO[@]}
     printf "${color}${log_prefix}${basename}:${BASH_LINENO[log_idx+1]}[${FUNCNAME[log_idx+2]}] %s${BU_TPUT_RESET}\n" "$*" >&2
 }
 
