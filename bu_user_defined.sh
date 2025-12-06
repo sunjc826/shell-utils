@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 # shellcheck source=./bu_custom_source.sh
 source "$BU_NULL"
 

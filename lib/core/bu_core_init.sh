@@ -36,17 +36,17 @@ __bu_init_vscode()
     if [[ -n "$VSCODE_IPC_HOOK_CLI" && -n "$VSCODE_GIT_ASKPASS_NODE" ]]
     then
         bu_log_info setting vscode links
-        ln -sf "$VSCODE_IPC_HOOK_CLI" "$BU_TMP_DIR"/VSCODE_IPC_HOOK_CLI.sock
-        ln -sf "$(realpath -- "$(dirname -- "$VSCODE_GIT_ASKPASS_NODE")"/..)" "$BU_TMP_DIR"/vscode_server_instance
+        ln -sf "$VSCODE_IPC_HOOK_CLI" "$BU_OUT_DIR"/VSCODE_IPC_HOOK_CLI.sock
+        ln -sf "$(realpath -- "$(dirname -- "$VSCODE_GIT_ASKPASS_NODE")"/..)" "$BU_OUT_DIR"/vscode_server_instance
     else
-        if  [[ ! ( -e "$BU_TMP_DIR"/VSCODE_IPC_HOOK_CLI.sock && -d "$BU_TMP_DIR"/vscode_server_instance ) ]]
+        if  [[ ! ( -e "$BU_OUT_DIR"/VSCODE_IPC_HOOK_CLI.sock && -d "$BU_OUT_DIR"/vscode_server_instance ) ]]
         then
             local latest_server=$(bu_vscode_find_latest_server)
             local latest_socket=$(bu_vscode_find_latest_socket)
             if [[ -n "$latest_server" && -n "$latest_socket" ]]
             then
-                ln -sf "$latest_socket" "$BU_TMP_DIR"/VSCODE_IPC_HOOK_CLI.sock
-                ln -sf "$latest_server" "$BU_TMP_DIR"/vscode_server_instance
+                ln -sf "$latest_socket" "$BU_OUT_DIR"/VSCODE_IPC_HOOK_CLI.sock
+                ln -sf "$latest_server" "$BU_OUT_DIR"/vscode_server_instance
             else
                 bu_log_info vscode server not found
                 unset VSCODE_IPC_HOOK_CLI
@@ -58,16 +58,16 @@ __bu_init_vscode()
                 return
             fi
         fi
-        export VSCODE_IPC_HOOK_CLI="$BU_TMP_DIR"/VSCODE_IPC_HOOK_CLI.sock
+        export VSCODE_IPC_HOOK_CLI="$BU_OUT_DIR"/VSCODE_IPC_HOOK_CLI.sock
         echo VSCODE_IPC_HOOK_CLI=$VSCODE_IPC_HOOK_CLI
-        if [[ -e "$BU_TMP_DIR"/vscode_server_instance/server/bin/remote-cli ]]
+        if [[ -e "$BU_OUT_DIR"/vscode_server_instance/server/bin/remote-cli ]]
         then
             # Remote SSH
-            bu_env_append_path "$BU_TMP_DIR"/vscode_server_instance/server/bin/remote-cli
-        elif [[ -e "$BU_TMP_DIR"/vscode_server_instance/bin/remote-cli ]]
+            bu_env_append_path "$BU_OUT_DIR"/vscode_server_instance/server/bin/remote-cli
+        elif [[ -e "$BU_OUT_DIR"/vscode_server_instance/bin/remote-cli ]]
         then
             # WSL
-            bu_env_prepend_path "$BU_TMP_DIR"/vscode_server_instance/bin/remote-cli
+            bu_env_prepend_path "$BU_OUT_DIR"/vscode_server_instance/bin/remote-cli
         else
             bu_log_err Cannot find code binary
             return 1
@@ -76,7 +76,7 @@ __bu_init_vscode()
         then
             if bu_vscode_is_socket_inactive
             then
-                rm -f "$BU_TMP_DIR"/VSCODE_IPC_HOOK_CLI.sock "$BU_TMP_DIR"/vscode_server_instance
+                rm -f "$BU_OUT_DIR"/VSCODE_IPC_HOOK_CLI.sock "$BU_OUT_DIR"/vscode_server_instance
                 export VISUAL=vim
                 export EDITOR=vim
                 bu_log_warn code server is not running

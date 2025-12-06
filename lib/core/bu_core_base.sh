@@ -40,20 +40,23 @@ bu_mkdir()
     fi
 }
 
-BU_BASE_PROC_DIR=$BU_TMP_DIR/proc
+BU_BASE_PROC_DIR=$BU_OUT_DIR/proc
 BU_PROC_DIR=$BU_BASE_PROC_DIR/$$
-BU_CACHE_DIR=$BU_TMP_DIR/cache
+BU_CACHE_DIR=$BU_OUT_DIR/cache
 BU_NAMED_CACHE_DIR=$BU_CACHE_DIR/named
 BU_HASHED_CACHE_DIR=$BU_CACHE_DIR/hashed
-BU_LOG_DIR=$BU_TMP_DIR/log
+BU_LOG_DIR=$BU_OUT_DIR/log
 BU_LAST_RUN_CMDS=$BU_LOG_DIR/last_run_cmds.sh
-BU_HISTORY=$BU_TMP_DIR/bu_history.sh
+BU_HISTORY=$BU_OUT_DIR/bu_history.sh
+BU_TMP_DIR=$BU_OUT_DIR/tmp
+BU_PROC_TMP_DIR=$BU_PROC_DIR/tmp
 
 bu_mkdir \
-    "$BU_BASE_PROC_DIR" \
     "$BU_NAMED_CACHE_DIR" \
     "$BU_HASHED_CACHE_DIR" \
-    "$BU_LOG_DIR"
+    "$BU_LOG_DIR" \
+    "$BU_TMP_DIR" \
+    "$BU_PROC_TMP_DIR"
 
 # Variables prefixed with BU_PROC_ are process specific
 # BU_PROC_FIFO is allows reading from stdout of a command without using a subshell
@@ -1191,18 +1194,29 @@ bu_popd_silent()
 
 # ```
 # *Description*:
-# Close a file descriptor
+# Close file descriptors
 #
 # *Params*:
-# - `$1`: File descriptor to close
+# - `...`: File descriptors to close
 #
 # *Returns*:
 # - Exit code of the `exec` command
 # ```
 bu_close_fd()
 {
-    local fd=$1
-    exec {fd}>&-
+    local exit_code=0
+    local ret
+    local fd
+    for fd
+    do
+        exec {fd}>&-
+        ret=$?
+        if ((ret))
+        then
+            exit_code=$ret
+        fi
+    done
+    return "$exit_code"
 }
 
 bu_scoped_set_opt()
@@ -1255,6 +1269,12 @@ bu_scoped_set()
     -) bu_scoped_set_opt "$opt";;
     *) bu_log_unrecognized_option "$1"; return 1;;
     esac
+}
+
+bu_scoped_pushd()
+{
+    bu_pushd_silent "$@"
+    bu_scope_add_cleanup bu_popd_silent
 }
 
 BU_EXIT_HANDLER_CLEANING_UP=false
@@ -1558,6 +1578,257 @@ bu_sync_cycle_numbered_files()
     cd "$original_dir" || return 1
 }
 
+bu_sync_log_poll_wait()
+{
+    local is_negate=false
+    if [[ "$1" = --negate ]]
+    then
+        is_negate=true
+        shift
+    fi
+
+    local log_file=$1
+    local wait_pattern=$2
+    local error_pattern=$3
+    local poll_timeout=${4:-60}
+    local poll_interval=${5:-3}
+    local file_not_exists_timeout=${6:-20}
+    local start=$SECONDS
+    local duration=
+    local file_exists_wait=false
+
+    while :
+    do
+        if [[ ! -e "$log_file" ]]
+        then
+            if "$file_exists_wait"
+            then
+                bu_log_err "We had already waited for the file once, but now it is gone"
+                return 1
+            fi
+
+            file_exists_wait=true
+
+            bu_log_warn "$log_file doesn't exist, sleeping for $file_not_exists_timeout seconds in case it is being generated"
+            while :
+            do
+                sleep "$poll_interval"
+                bu_log_info 'Waiting for file to exist'
+                if [[ -e "$log_file" ]]
+                then
+                    break
+                fi
+                duration=$((SECONDS - start))
+                bu_log_info "wait: $duration"
+                if (( duration > file_not_exists_timeout ))
+                then
+                    bu_log_err "File still doesn't exist after $duration"
+                    return 1
+                fi
+            done
+        fi
+
+        sleep "$poll_interval"
+        bu_log_info "Waiting for pattern[$wait_pattern], is_negate[$is_negate]"
+        if grep -qE "$wait_pattern" "$log_file"
+        then
+            if ! "$is_negate"
+            then
+                bu_log_success "Found pattern[$wait_pattern]"
+                break
+            fi
+        else
+            if "$is_negate"
+            then
+                bu_log_success "Pattern[$wait_pattern] no longer exists"
+                break
+            fi
+        fi
+
+        if [[ -n "$error_pattern" ]] && grep -E "$error_pattern" "$log_file"
+        then
+            bu_log_err "Found error[$error_pattern]"
+            return 1
+        fi
+        duration=$((SECONDS - start))
+        bu_log_info "wait: $duration"
+        bu_log_cmd_info tail -n 5 "$log_file" || true
+        if (( duration > poll_timeout ))
+        then
+            bu_log_err "wait failed after $duration seconds"
+            return 1
+        fi
+    done
+}
+
+bu_sync_wait_group_wait()
+{
+    local fifo
+    local discarded
+    for fifo
+    do
+        if [[ ! -e "$fifo" ]]
+        then
+            bu_log_err "The fifo[$fifo] does not exist"
+            return 1
+        fi
+        read discarded <"$fifo"
+    done
+}
+
+bu_sync_wait_group_ready()
+{
+    local fifo
+    for fifo
+    do
+        if [[ ! -e "$fifo" ]]
+        then
+            bu_log_err "The fifo[$fifo] does not exist"
+            return 1
+        fi
+        echo ready > "$fifo"
+    done
+}
+
+bu_sync_wait_group_parent()
+{
+    bu_log_info "Wait group: Waiting on children"
+    bu_sync_wait_group_wait "$@" || return 1
+    bu_log_info "Wait group: Children ready"
+    bu_sync_wait_group_ready "$@" || return 1
+    bu_log_info "Wait group: Unblocking children"
+}
+
+bu_sync_wait_group_child()
+{
+    if (($# != 1))
+    then
+        bu_log_err "Expected exactly 1 parent, got $# fifos[$*]"
+        return 1
+    fi
+    bu_log_info "Wait group: Child ready"
+    bu_sync_wait_group_ready "$1" || return 1
+    bu_log_info "Wait group: Waiting on parent"
+    bu_sync_wait_group_wait "$1" || return 1
+    bu_log_info "Wait group: Parent ready"
+}
+
+# MARK: Environment/Path utilities
+# ```
+# *Description*:
+# Get function definition location
+#
+# *Params*:
+# - `$1`: Function name
+#
+# *Returns*:
+# - `stdout`: Function definition location
+# ```
+bu_env_whichfunc()
+{
+    shopt -s extdebug
+    declare -F "$1"
+    shopt -u extdebug
+}
+
+__bu_env_append_generic_path()
+{
+    local -n __path_var=$1
+    local path_to_append=$2
+    if [[ ":$__path_var:" != *":$path_to_append:"* ]]
+    then
+        __path_var=${__path_var:+$__path_var:}$path_to_append
+    fi
+}
+
+__bu_env_prepend_generic_path()
+{
+    local -n __path_var=$1
+    local path_to_prepend=$2
+    if [[ ":$__path_var:" != *":$path_to_prepend:"* ]]
+    then
+        __path_var=$path_to_prepend${__path_var:+:$__path_var}
+    fi
+}
+
+__bu_env_prepend_generic_path_force()
+{
+    local -n __path_var=$1
+    local path_to_prepend=$2
+    __path_var=$path_to_prepend${__path_var:+:$__path_var}
+}
+
+bu_env_append_path()
+{
+    __bu_env_append_generic_path PATH "$1"
+}
+
+bu_env_prepend_path()
+{
+    __bu_env_prepend_generic_path PATH "$1"
+}
+
+bu_env_prepend_path_force()
+{
+    __bu_env_prepend_generic_path_force PATH "$1"
+}
+
+bu_env_append_ld_library_path()
+{
+    __bu_env_append_generic_path LD_LIBRARY_PATH "$1"
+}
+
+bu_env_prepend_pythonpath()
+{
+    __bu_env_prepend_generic_path PYTHONPATH "$1"
+}
+
+bu_env_append_pythonpath()
+{
+    __bu_env_append_generic_path PYTHONPATH "$1"
+}
+
+bu_env_prepend_path_force()
+{
+    __bu_env_prepend_generic_path_force PYTHONPATH "$1"
+}
+
+__bu_env_remove_from_generic_path()
+{
+    local -n __path_var=$1
+    local path_to_remove=$2
+    __path_var=${__path_var//:$path_to_remove:/:} # delete instances in the middle
+    __path_var=${__path_var/#$path_to_remove:/} # delete instance at the beginning
+    __path_var=${__path_var%:$path_to_remove/} # delete instance at the end
+}
+
+bu_env_remove_from_path()
+{
+    __bu_env_remove_from_generic_path PATH "$1"
+}
+
+bu_env_remove_from_ld_library_path()
+{
+    __bu_env_remove_from_generic_path LD_LIBRARY_PATH "$1"
+}
+
+bu_env_remove_from_pythonpath()
+{
+    __bu_env_remove_from_generic_path PYTHONPATH "$1"
+}
+
+bu_env_rename_func()
+{
+    local old_func_name=$1
+    local new_func_name=$2
+
+    eval "$(declare -f "$old_func_name" | sed -r "s/\b$old_func_name\b/$new_func_name/g")"
+}
+
+bu_env_is_in_tmux()
+{
+    [[ -n "$TMUX" && ("$TERM" == screen* || "$TERM" == tmux*) ]]
+}
 
 # MARK: Run utils
 bu_cached_execute()
@@ -1623,6 +1894,129 @@ bu_cached_execute()
 
         shift "$shift_by"
     done
+
+    if "$BU_INVALIDATE_CACHE"
+    then
+        is_invalidate_cache=true
+    fi
+
+    local command_line=("$@")
+    if ! bu_symbol_is_function "${command_line[0]}" && ((${#cache_bash_vars[@]}))
+    then
+        bu_log_err "Cannot specify --bash-var when not calling a bash function"
+        return 1
+    fi
+
+    local tmpfile
+    local do_cache=true
+    if ! tmpfile=$(mktemp "$BU_OUT_DIR"/bu_cached_execute.XXXXXXXXXX)
+    then
+        do_cache=false
+    fi
+    
+    local hash_value
+    if ! hash_value=$({
+        if ((${#cache_bash_vars[@]}))
+        then
+            declare -p "${cache_bash_vars[@]}" | awk '{print $NF}'
+        fi
+        if ((${#cache_env_vars[@]}))
+        then
+            paste -d = <(printf '%s\n' "${cache_env_vars[@]}") <(printenv "${cache_env_vars[@]}")
+        fi
+        printf '%s ' "${command_line[@]}"
+    } | tee "$tmpfile" | md5sum | awk '{print $1}')
+    then
+        bu_log_err 'Generation of cache key failed'
+        do_cache=false
+    fi
+
+    if "$do_cache"
+    then
+        local need_to_run=true
+        local stdout_file=$cache_dir/$hash_value.stdout.txt
+        local command_file=$cache_dir/$hash_value.command.txt
+        if "$is_invalidate_cache"
+        then
+            rm -f "$stdout_file"
+        elif [[ -e "$stdout_file" ]]
+        then
+            if ! "$is_strict_equality" || diff "$tmpfile" "$command_file"
+            then
+                need_to_run=false
+            fi
+        fi
+
+        if "$is_check"
+        then
+            printf '%s\n' "$hash_value"
+            if "$need_to_run"
+            then
+                return 1
+            else
+                return 0
+            fi
+        fi
+
+        if "$need_to_run"
+        then
+            mv "$tmpfile" "$command_file"
+            bu_log_warn "Cache not found, running command ${command_line[*]}"
+            local command_failed=false
+            if ! "${command_line[@]}" > "$stdout_file"
+            then
+                command_failed=true
+            fi
+
+            if [[ -n "$error_pattern" ]]
+            then
+                bu_log_debug "Checking for error pattern: $error_pattern"
+                if grep -E "$error_pattern" "$stdout_file"
+                then
+                    bu_log_err "Found error_pattern[$error_pattern]"
+                    command_failed=true
+                fi
+            fi
+
+            if "$error_if_empty"
+            then
+                bu_log_debug 'Checking if output is blank'
+                if [[ -z $(grep '[^[:space:]]' "$stdout_file") ]]
+                then
+                    bu_log_err 'Command did not give any output (pass --allow-empty to skip this check)'
+                    command_failed=true
+                fi
+            fi
+
+            if "$command_failed"
+            then
+                bu_log_err "Command ${command_line[*]} failed"
+                rm -f "$stdout_file" "$command_file"
+                return 1
+            fi
+        else
+            if "$error_if_empty"
+            then
+                bu_log_debug 'Checking if output is blank'
+                if [[ ! -s "$stdout_file" ]]
+                then
+                    bu_log_err 'Command did not give any output (pass --allow-empty to skip this check)'
+                    rm -f "$stdout_file" "$command_file"
+                    return 1
+                fi
+            fi
+        fi
+        cat "$stdout_file"
+    else
+        "${command_line[@]}"
+    fi
+
+    if [[ -e "$tmpfile" ]]
+    then
+        rm -f "$tmpfile"
+    fi
+
+    return 0
 }
 
 __bu_cycle_logs()
@@ -1680,9 +2074,48 @@ bu_run_log_command()
     bu_scope_add_cleanup bu_sync_cycle_last_run_cmds
 }
 
+bu_run_open_logs()
+{
+    local log_file=$1
+    local editor=${VISUAL:-$EDITOR}
+    case "$editor" in
+    *'bu_code_wait.sh'|'code '*)
+        code "$log_file"
+        ;;
+    '')
+        if command -v code &>/dev/null
+        then
+            code "$log_file"
+        else
+            less "$log_file"
+        fi 
+        ;;
+    *)
+        $editor "$log_file"
+        ;;
+    esac
+}
+
+bu_sleep()
+{
+    local num_seconds=$1
+    bu_log_info "Sleeping for $num_seconds seconds"
+    if command -v tqdm &>/dev/null
+    then
+        for i in $(seq "$num_seconds")
+        do
+            sleep 1
+            echo
+        done | tqdm --total "$num_seconds" >/dev/null
+    else
+        sleep "$num_seconds"
+    fi
+}
+
 bu_run()
 {
     bu_scope_push_function
+    local invocation_dir=$PWD
     local is_gdb=false
     local is_log=false
     local is_log_stdout=false
@@ -1811,7 +2244,7 @@ bu_run()
         return 1
     esac
     bu_basename "$command_list"
-    local command=$BU_RET
+    local command_base=$BU_RET
     local gdb_prefix=()
     local cached_execute_prefix=()
     if "$is_gdb"
@@ -1860,22 +2293,175 @@ bu_run()
     if "$is_ldd"
     then
         bu_log_info "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
-
+        bu_log_cmd_info ldd "${command_list[0]}"
     fi
+
+    bu_log_cmd_info printf '%q ' "${gdb_prefix[@]}" "${cached_execute_prefix[@]}" "${command_list[@]}"
+
+    local log_file=$BU_LOG_DIR/$command_base/$command_base.log
+    if "$is_dry_run"
+    then
+        bu_log_info 'Dry-run, not actually running'
+        # This is a hack to open the last log from the previous run
+        if "$is_open_logs"
+        then
+            bu_run_open_logs "$log_file"
+        fi
+        bu_scope_pop_function
+        return 0
+    fi
+
+    if "$is_kill_existing"
+    then
+        bu_log_info 'Killing existing command'
+        local command_count=$(pkill -u "$USER" --count --full "${command_list[*]}")
+        case "$command_count" in
+        0) ;;
+        1)
+            pkill -u "$USER" --signal SIGTERM --full "${command_list[*]}" || true
+            sleep 5
+            local new_command_count=$(pkill -u "$USER" --count --full "${command_list[*]}")
+            case "$new_command_count" in
+            0)
+                bu_log_success 'pkill is successful'
+                ;;
+            1)
+                bu_log_warn 'SIGTERM not successful, falling back to SIGKILL'
+                pkill -u "$USER" --signal SIGKILL --full "${command_list[*]}" || true
+                sleep 5
+                new_command_count=$(pkill -u "$USER" --count --full "${command_list[*]}")
+                if ((new_command_count))
+                then
+                    bu_log_err 'For some reason even SIGKILL did not kill the command, or maybe this is a new instance'
+                    bu_scope_pop_function
+                    return 1
+                fi
+                ;;
+            esac
+            ;;
+        *)
+            bu_log_err "More than 1 instance of ${command_list[*]} found"
+            bu_scope_pop_function
+            return 1
+        esac
+    fi
+
+    local write_fd
+    local read_fd
+    if "$is_log" || "$is_log_stdout"
+    then
+        __bu_cycle_logs "$command_base" 5
+        write_fd=${BU_RET[0]}
+        read_fd=${BU_RET[1]}
+        bu_scope_add_cleanup bu_close_fd "$write_fd" "$read_fd"
+    fi
+
+    if [[ -n "$wait_group_fifo" ]]
+    then
+        if ! bu_sync_wait_group_child "$wait_group_fifo"
+        then
+            bu_log_err "Wait group failed"
+            return 1
+        fi
+    fi
+
+    local command_exit_code=0
+    bu_scope_push
+    if [[ -z "$working_directory" ]]
+    then
+        bu_scoped_pushd "$invocation_dir"
+    else
+        bu_scoped_pushd "$working_directory"
+    fi
+    bu_scoped_set +e
+    bu_scoped_set_opt pipefail
+
+    if [[ -n "$watch_interval" ]]
+    then
+        watch -n "$watch_interval" "${command_list[@]}"
+    elif "$is_log"
+    then
+        "${command_list[@]}" |& tee --ignore-interrupts /dev/fd/"$write_fd"
+        command_exit_code=$?
+    elif "$is_log_stdout"
+    then
+        "${command_list[@]}" | tee --ignore-interrupts /dev/fd/"$write_fd"
+    else
+        local command_escaped=$(printf '%q ' "${gdb_prefix[@]}" "${cached_execute_prefix[@]}" "${command_list[@]}")
+        eval "$command_escaped"
+        command_exit_code=$?
+    fi
+    bu_scope_pop
+
+    if [[ -n "$copy_logs_to" ]]
+    then
+        if ! "$is_log" && ! "$is_log_stdout"
+        then
+            bu_scope_pop_function
+            bu_log_err 'Logging not enabled, but --copy-logs-to specified'
+            return 1
+        fi
+        bu_dirname "$copy_logs_to"
+        bu_mkdir "$BU_RET"
+        if [[ -n "$read_fd" ]]
+        then
+            cp /dev/fd/"$read_fd" "$copy_logs_to"
+            bu_log_info "Logs are copied to $(realpath -- "$copy_logs_to")"
+        else
+            bu_log_err 'Logic error, read_fd is empty'
+        fi
+    elif "$is_log" || "$is_log_stdout"
+    then
+        bu_log_info "Logs are at $log_file"
+    fi
+
+    if "$is_mapfile" || "$is_mapfile_str"
+    then
+        if ! "$is_log" && ! "$is_log_stdout"
+        then
+            bu_log_err 'Logging not enabled, but --mapfile/--mapfile-str specified'
+            bu_scope_pop_function
+            return 1
+        fi
+        local mapfile_file=
+        if [[ -n "$copy_logs_to" ]]
+        then
+            mapfile_file=$copy_logs_to
+        elif [[ -n "$read_fd" ]]
+        then
+            mapfile_file=/dev/fd/$read_fd
+        else
+            bu_log_err 'Logic error, read_fd is empty'
+        fi
+
+        if "$is_mapfile"
+        then
+            mapfile -t "$mapfile_outparam" <"$mapfile_file"
+        else
+            mapfile -d '' "$mapfile_outparam" <"$mapfile_file"
+        fi
+    fi
+
+    if "$is_open_logs"
+    then
+        if [[ -n "$copy_logs_to" ]]
+        then
+            bu_run_open_logs "$copy_logs_to"
+        else
+            bu_run_open_logs "$log_file"
+        fi
+    fi
+
+    if "$is_ignore_non_zero_exit_code" && ((command_exit_code))
+    then
+        bu_log_warn "Command $command_base exited with non-zero exit code[$command_exit_code], ignoring..."
+        bu_scope_pop_function
+        return 0
+    fi
+
+    bu_scope_pop_function
+    return "$command_exit_code"
 }
-
-# MARK: tmux
-bu_env_is_in_tmux()
-{
-    [[ -n "$TMUX" && ("$TERM" == screen* || "$TERM" == tmux*) ]]
-}
-
-
-bu_spawn()
-{
-    :
-}
-
 
 # MARK: VSCode
 BU_ENV_IS_WSL=
@@ -1925,118 +2511,6 @@ bu_vscode_is_socket_inactive()
         return 1
         ;;
     esac
-}
-
-# MARK: Environment/Path utilities
-# ```
-# *Description*:
-# Get function definition location
-#
-# *Params*:
-# - `$1`: Function name
-#
-# *Returns*:
-# - `stdout`: Function definition location
-# ```
-bu_env_whichfunc()
-{
-    shopt -s extdebug
-    declare -F "$1"
-    shopt -u extdebug
-}
-
-__bu_env_append_generic_path()
-{
-    local -n __path_var=$1
-    local path_to_append=$2
-    if [[ ":$__path_var:" != *":$path_to_append:"* ]]
-    then
-        __path_var=${__path_var:+$__path_var:}$path_to_append
-    fi
-}
-
-__bu_env_prepend_generic_path()
-{
-    local -n __path_var=$1
-    local path_to_prepend=$2
-    if [[ ":$__path_var:" != *":$path_to_prepend:"* ]]
-    then
-        __path_var=$path_to_prepend${__path_var:+:$__path_var}
-    fi
-}
-
-__bu_env_prepend_generic_path_force()
-{
-    local -n __path_var=$1
-    local path_to_prepend=$2
-    __path_var=$path_to_prepend${__path_var:+:$__path_var}
-}
-
-bu_env_append_path()
-{
-    __bu_env_append_generic_path PATH "$1"
-}
-
-bu_env_prepend_path()
-{
-    __bu_env_prepend_generic_path PATH "$1"
-}
-
-bu_env_prepend_path_force()
-{
-    __bu_env_prepend_generic_path_force PATH "$1"
-}
-
-bu_env_append_ld_library_path()
-{
-    __bu_env_append_generic_path LD_LIBRARY_PATH "$1"
-}
-
-bu_env_prepend_pythonpath()
-{
-    __bu_env_prepend_generic_path PYTHONPATH "$1"
-}
-
-bu_env_append_pythonpath()
-{
-    __bu_env_append_generic_path PYTHONPATH "$1"
-}
-
-bu_env_prepend_path_force()
-{
-    __bu_env_prepend_generic_path_force PYTHONPATH "$1"
-}
-
-__bu_env_remove_from_generic_path()
-{
-    local -n __path_var=$1
-    local path_to_remove=$2
-    __path_var=${__path_var//:$path_to_remove:/:} # delete instances in the middle
-    __path_var=${__path_var/#$path_to_remove:/} # delete instance at the beginning
-    __path_var=${__path_var%:$path_to_remove/} # delete instance at the end
-}
-
-bu_env_remove_from_path()
-{
-    __bu_env_remove_from_generic_path PATH "$1"
-}
-
-bu_env_remove_from_ld_library_path()
-{
-    __bu_env_remove_from_generic_path LD_LIBRARY_PATH "$1"
-}
-
-bu_env_remove_from_pythonpath()
-{
-    __bu_env_remove_from_generic_path PYTHONPATH "$1"
-}
-
-bu_env_rename_func()
-{
-    local old_func_name=$1
-    local new_func_name=$2
-
-    eval "$(declare -f "$old_func_name" | sed -r "s/\b$old_func_name\b/$new_func_name/g")"
 }
 
 # MARK: Pretty 
