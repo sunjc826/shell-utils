@@ -1,18 +1,42 @@
 # shellcheck source=./bu_custom_source.sh
 source "$BU_NULL"
 
+# ```
+# *Description*:
+# Sources user defined configuration callback scripts.
+#
+# *Params*: None
+#
+# *Returns*: None
+# ```
 bu_source_user_defined_configs()
 {
     bu_source_multi_once "${BU_USER_DEFINED_STATIC_CONFIGS[@]}"
     bu_source_multi "${BU_USER_DEFINED_DYNAMIC_CONFIGS[@]}"
 }
 
+# ```
+# *Description*:
+# Sources user defined pre-init callback scripts.
+#
+# *Params*: None
+#
+# *Returns*: None
+# ```
 bu_source_user_defined_pre_init_callbacks()
 {
     bu_source_multi_once "${BU_USER_DEFINED_STATIC_PRE_INIT_ENTRYPOINT_CALLBACKS[@]}"
     bu_source_multi "${BU_USER_DEFINED_DYNAMIC_POST_ENTRYPOINT_CALLBACKS[@]}"
 }
 
+# ```
+# *Description*:
+# Sources user defined post-init callback scripts.
+#
+# *Params*: None
+#
+# *Returns*: None
+# ```
 bu_source_user_defined_post_entrypoint_callbacks()
 {
     bu_source_multi_once "${BU_USER_DEFINED_STATIC_POST_ENTRYPOINT_CALLBACKS[@]}"

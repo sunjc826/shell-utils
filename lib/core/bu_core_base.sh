@@ -172,6 +172,8 @@ bu_stdout_to_ret()
     then
         if "$BU_ENV_IS_WSL"
         then
+            # WSL doesn't have the best filesystem performance,
+            # so there's not much to gain from the proc file optimization
             is_proc=false
         else
             is_proc=true
@@ -290,12 +292,33 @@ bu_cat_arr_append()
 }
 
 # MARK: Shell symbol helpers
+
+# ```
+# *Description*:
+# Check if a symbol is a function
+#
+# *Params*:
+# - `$1`: Symbol name
+#
+# *Returns*:
+# - Exit code 0 if the symbol is a function, non-zero otherwise
+# ```
 bu_symbol_is_function()
 {
     bu_stdout_to_ret --proc type -t "$1"
     [[ "$BU_RET" = function ]]
 }
 
+# ```
+# *Description*:
+# Check if a symbol is a file
+#
+# *Params*:
+# - `$1`: Symbol name
+#
+# *Returns*:
+# - Exit code 0 if the symbol is a file, non-zero otherwise
+# ```
 bu_symbol_is_file()
 {
     bu_stdout_to_ret --proc type -t "$1"
@@ -491,6 +514,19 @@ __bu_log()
     fi
 }
 
+# ```
+# *Description*:
+# Assert an error condition
+#
+# *Params*:
+# - `...`: Error message
+#
+# *Returns*:
+# - Exit code 1
+#
+# *Notes*:
+# - This assumes that set -e is set, so that the assertion failure will terminate the script
+# ```
 bu_assert_err()
 {
     __bu_log "$BU_TPUT_RED" "$BU_LOG_LVL_ERR" ERR "$*"
@@ -557,6 +593,13 @@ bu_log_success()
     __bu_log "$BU_TPUT_GREEN" "$BU_LOG_LVL_INFO" SUCCESS "$*"
 }
 
+# ```
+# *Description*:
+# Log a message directly to the terminal (TTY)
+#
+# *Params*:
+# - `...`: Log message
+# ```
 bu_log_tty()
 {
     printf '%s\n' "$*" > /dev/tty
@@ -982,6 +1025,24 @@ bu_gen_trim_empty_lines()
     fi
 }
 
+# ```
+# *Description*:
+# Remove empty lines from a string
+#
+# *Params*:
+# - `stdin`: string to remove empty lines from
+#
+# *Returns*:
+# - `stdout`: string with empty lines removed
+#
+# *Examples*:
+# ```bash
+# echo '
+# abc
+#
+# ' | bu_gen_remove_empty_lines # stdout='abc'
+# ```
+# ```
 bu_gen_remove_empty_lines()
 {
     sed -r -e '/^$/d'
@@ -1068,6 +1129,26 @@ bu_scope_handle()
     BU_RET=${BU_SCOPE_STACK[-1]}
 }
 
+# ```
+# *Description*:
+# Register a cleanup command to be executed when the scope which the handle refers to is popped
+# 
+# *Params*:
+# - `$1`: Scope handle
+# - `...`: Command to register as cleanup
+#
+# *Returns*: None
+#
+# *Examples*:
+# ```bash
+# bu_scope_push
+# bu_scope_handle # $BU_RET contains the current scope handle
+# handle=$BU_RET
+# touch /tmp/some_temp_file
+# bu_scope_handle_add_cleanup "$handle" rm -f /tmp/some_temp_file
+# bu_scope_pop
+# ```
+# ```
 bu_scope_handle_add_cleanup()
 {
     local handle=$1
@@ -1077,6 +1158,23 @@ bu_scope_handle_add_cleanup()
     deferred+=("$BU_RET")
 }
 
+# ```
+# *Description*:
+# Register a cleanup command to be executed when the current scope is popped
+#
+# *Params*:
+# - `...`: Command to register as cleanup
+#
+# *Returns*: None
+#
+# *Examples*:
+# ```bash
+# bu_scope_push
+# touch /tmp/some_temp_file
+# bu_scope_add_cleanup rm -f /tmp/some_temp_file
+# bu_scope_pop
+# ```
+# ```
 bu_scope_add_cleanup()
 {
     if ((!"${#BU_SCOPE_STACK[@]}"))
@@ -1198,17 +1296,37 @@ bu_scope_pop_function()
     return "$ret"
 }
 
+# ```
+# *Description*:
+# Pop all scopes from the scope stack and execute all registered cleanup commands
+#
+# *Params*: None
+#
+# *Returns*:
+# - Exit code 0 if all cleanups succeeded, non-zero otherwise
+#
+# *Examples*:
+# ```bash
+# bu_scope_push
+# touch /tmp/some_temp_file
+# bu_scope_add_cleanup rm -f /tmp/some_temp_file
+# bu_scope_push
+# touch /tmp/some_temp_file2
+# bu_scope_add_cleanup rm -f /tmp/some_temp_file2
+# bu_scope_pop_all
+# ```
+# ```
 bu_scope_pop_all()
 {
-    local ret=0
+    local exit_code=0
     for (( i=${#BU_SCOPE_STACK[@]}; i > 0; i-- ))
     do
         if ! bu_scope_pop
         then
-            ret=1
+            exit_code=1
         fi
     done
-    return "$ret"
+    return "$exit_code"
 }
 
 # MARK: Scope-related utilities
@@ -1268,6 +1386,23 @@ bu_close_fd()
     return "$exit_code"
 }
 
+# ```
+# *Description*:
+# Set a shell option for the current scope, restoring the previous value when the scope is popped
+#
+# *Params*:
+# - `$1`: Shell option to set (e.g. `errexit`, `nounset`, etc.)
+#
+# *Returns*: None
+#
+# *Examples*:
+# ```bash
+# bu_scope_push
+# bu_scoped_set errexit
+# some_command_that_may_fail
+# bu_scope_pop
+# ```
+# ```
 bu_scoped_set_opt()
 {
     local opt=$1
@@ -1278,6 +1413,23 @@ bu_scoped_set_opt()
     fi
 }
 
+# ```
+# *Description*:
+# Unset a shell option for the current scope, restoring the previous value when the scope is popped
+#
+# *Params*:
+# - `$1`: Shell option to unset (e.g. `errexit`, `nounset`, etc.)
+#
+# *Returns*: None
+#
+# *Examples*:
+# ```bash
+# bu_scope_push
+# bu_scoped_unset nounset
+# some_command_that_may_use_unset_variables
+# bu_scope_pop
+# ```
+# ```
 bu_scoped_unset_opt()
 {
     local opt=$1
@@ -1288,6 +1440,22 @@ bu_scoped_unset_opt()
     fi
 }
 
+# ```
+# *Description*:
+# Set or unset a shell option for the current scope, restoring the previous value when the scope is popped
+#
+# *Params*:
+# - `$1`: Shell option to set or unset, prefixed with `-` to set or `+` to unset (e.g. `-errexit`, `+nounset`, etc.)
+#
+# *Returns*: None
+#
+# *Examples*:
+# ```bash
+# bu_scope_push
+# bu_scoped_set -e
+# some_command_that_may_fail
+# bu_scope_pop
+# ```
 bu_scoped_set()
 {
     local opt
@@ -1320,6 +1488,15 @@ bu_scoped_set()
     esac
 }
 
+# ```
+# *Description*:
+# Push a directory onto the directory stack and register a cleanup to pop it when the scope is popped
+#
+# *Params*:
+# - `$1`: Directory to change to
+#
+# *Returns*: None
+# ```
 bu_scoped_pushd()
 {
     bu_pushd_silent "$@"
@@ -1628,6 +1805,24 @@ bu_sync_cycle_numbered_files()
     cd "$original_dir" || return 1
 }
 
+# ```
+# *Description*:
+# Poll a log file for a pattern to appear (or disappear)
+#
+# *Params*:
+# - `--negate` (optional): If present, wait for the pattern to disappear
+# - `$1`: Log file path
+# - `$2`: Pattern to wait for (regular expression)
+# - `$3`: Error pattern (regular expression) that causes immediate failure if found
+# - `$4` (optional): Poll timeout in seconds (default: 60)
+# - `$5` (optional): Poll interval in seconds (default: 3)
+# - `$6` (optional): File not exists timeout in seconds (default: 20)
+#
+# *Returns*:
+# - Exit code:
+#   - `0`: if the pattern was found (or disappeared, if `--negate` is used)
+#   - `1`: if the error pattern was found or the timeout was reached
+# ```
 bu_sync_log_poll_wait()
 {
     local is_negate=false
@@ -1711,6 +1906,18 @@ bu_sync_log_poll_wait()
     done
 }
 
+# ```
+# *Description*:
+# Wait for all fifos in the argument list to be written to
+#
+# *Params*:
+# - `...`: List of fifo paths to wait on
+#
+# *Returns*:
+# - Exit code:
+#   - `0`: Success
+#   - `1`: Failure
+# ```
 bu_sync_wait_group_wait()
 {
     local fifo
@@ -1726,6 +1933,18 @@ bu_sync_wait_group_wait()
     done
 }
 
+# ```
+# *Description*:
+# Signal readiness to all fifos in the argument list by writing "ready" to them
+#
+# *Params*:
+# - `...`: List of fifo paths to signal readiness to
+#
+# *Returns*:
+# - Exit code:
+#   - `0`: Success
+#   - `1`: Failure
+# ```
 bu_sync_wait_group_ready()
 {
     local fifo
@@ -1740,6 +1959,18 @@ bu_sync_wait_group_ready()
     done
 }
 
+# ```
+# *Description*:
+# Wait for all children to be ready, then signal readiness to them
+#
+# *Params*:
+# - `...`: List of fifo paths to wait on and signal readiness to
+#
+# *Returns*:
+# - Exit code:
+#   - `0`: Success
+#   - `1`: Failure
+# ```
 bu_sync_wait_group_parent()
 {
     bu_log_info "Wait group: Waiting on children"
@@ -1749,6 +1980,18 @@ bu_sync_wait_group_parent()
     bu_log_info "Wait group: Unblocking children"
 }
 
+# ```
+# *Description*:
+# Signal readiness to the parent, then wait for the parent to be ready
+#
+# *Params*:
+# - `$1`: Parent fifo path
+#
+# *Returns*:
+# - Exit code:
+#   - `0`: Success
+#   - `1`: Failure
+# ```
 bu_sync_wait_group_child()
 {
     if (($# != 1))
@@ -1781,6 +2024,16 @@ bu_env_whichfunc()
     shopt -u extdebug
 }
 
+# ```
+# *Description*:
+# Append a path to a generic path-like environment variable if it is not already present
+#
+# *Params*:
+# - `$1`: Name of the path variable (e.g. PATH, LD_LIBRARY_PATH, etc.)
+# - `$2`: Path to append
+#
+# *Returns*: None
+# ```
 __bu_env_append_generic_path()
 {
     local -n __path_var=$1
@@ -1791,6 +2044,16 @@ __bu_env_append_generic_path()
     fi
 }
 
+# ```
+# *Description*:
+# Prepend a path to a generic path-like environment variable if it is not already present
+#
+# *Params*:
+# - `$1`: Name of the path variable (e.g. PATH, LD_LIBRARY_PATH, etc.)
+# - `$2`: Path to prepend
+#
+# *Returns*: None
+# ```
 __bu_env_prepend_generic_path()
 {
     local -n __path_var=$1
@@ -1801,6 +2064,16 @@ __bu_env_prepend_generic_path()
     fi
 }
 
+# ```
+# *Description*:
+# Prepend a path to a generic path-like environment variable, even if it is already present
+#
+# *Params*:
+# - `$1`: Name of the path variable (e.g. PATH, LD_LIBRARY_PATH, etc.)
+# - `$2`: Path to prepend
+#
+# *Returns*: None
+# ```
 __bu_env_prepend_generic_path_force()
 {
     local -n __path_var=$1
@@ -1808,41 +2081,114 @@ __bu_env_prepend_generic_path_force()
     __path_var=$path_to_prepend${__path_var:+:$__path_var}
 }
 
+# ```
+# *Description*:
+# Append a path to the PATH environment variable if it is not already present
+#
+# *Params*:
+# - `$1`: Path to append
+#
+# *Returns*: None
+# ```
 bu_env_append_path()
 {
     __bu_env_append_generic_path PATH "$1"
 }
 
+# ```
+# *Description*:
+# Prepend a path to the PATH environment variable if it is not already present
+#
+# *Params*:
+# - `$1`: Path to prepend
+#
+# *Returns*: None
+# ```
 bu_env_prepend_path()
 {
     __bu_env_prepend_generic_path PATH "$1"
 }
 
+# ```
+# *Description*:
+# Prepend a path to the PATH environment variable, even if it is already present
+#
+# *Params*:
+# - `$1`: Path to prepend
+#
+# *Returns*: None
+# ```
 bu_env_prepend_path_force()
 {
     __bu_env_prepend_generic_path_force PATH "$1"
 }
 
+# ```
+# *Description*:
+# Prepend a path to the LD_LIBRARY_PATH environment variable if it is not already present
+#
+# *Params*:
+# - `$1`: Path to prepend
+#
+# *Returns*: None
+# ```
 bu_env_append_ld_library_path()
 {
     __bu_env_append_generic_path LD_LIBRARY_PATH "$1"
 }
 
+# ```
+# *Description*:
+# Prepend a path to the PYTHONPATH environment variable if it is not already present
+#
+# *Params*:
+# - `$1`: Path to prepend
+#
+# *Returns*: None
+# ```
 bu_env_prepend_pythonpath()
 {
     __bu_env_prepend_generic_path PYTHONPATH "$1"
 }
 
+# ```
+# *Description*:
+# Append a path to the PYTHONPATH environment variable if it is not already present
+#
+# *Params*:
+# - `$1`: Path to append
+#
+# *Returns*: None
+# ```
 bu_env_append_pythonpath()
 {
     __bu_env_append_generic_path PYTHONPATH "$1"
 }
 
-bu_env_prepend_path_force()
+# ```
+# *Description*:
+# Prepend a path to the PYTHONPATH environment variable, even if it is already present
+#
+# *Params*:
+# - `$1`: Path to prepend
+#
+# *Returns*: None
+# ```
+bu_env_prepend_pythonpath_force()
 {
     __bu_env_prepend_generic_path_force PYTHONPATH "$1"
 }
 
+# ```
+# *Description*:
+# Remove a path from a generic path-like environment variable
+#
+# *Params*:
+# - `$1`: Name of the path variable (e.g. PATH, LD_LIBRARY_PATH, etc.)
+# - `$2`: Path to remove
+#
+# *Returns*: None
+# ```
 __bu_env_remove_from_generic_path()
 {
     local -n __path_var=$1
@@ -1852,16 +2198,43 @@ __bu_env_remove_from_generic_path()
     __path_var=${__path_var%:$path_to_remove/} # delete instance at the end
 }
 
+# ```
+# *Description*:
+# Remove a path from the PATH environment variable
+#
+# *Params*:
+# - `$1`: Path to remove
+#
+# *Returns*: None
+# ```
 bu_env_remove_from_path()
 {
     __bu_env_remove_from_generic_path PATH "$1"
 }
 
+# ```
+# *Description*:
+# Remove a path from the LD_LIBRARY_PATH environment variable
+#
+# *Params*:
+# - `$1`: Path to remove
+#
+# *Returns*: None
+# ```
 bu_env_remove_from_ld_library_path()
 {
     __bu_env_remove_from_generic_path LD_LIBRARY_PATH "$1"
 }
 
+# ```
+# *Description*:
+# Remove a path from the PYTHONPATH environment variable
+#
+# *Params*:
+# - `$1`: Path to remove
+#
+# *Returns*: None
+# ```
 bu_env_remove_from_pythonpath()
 {
     __bu_env_remove_from_generic_path PYTHONPATH "$1"
@@ -1875,11 +2248,33 @@ bu_env_rename_func()
     eval "$(declare -f "$old_func_name" | sed -r "s/\b$old_func_name\b/$new_func_name/g")"
 }
 
+# ```
+# *Description*:
+# Check if the current shell session is inside a tmux session
+#
+# *Params*: None
+#
+# *Returns*:
+# - Exit code:
+#   - `0`: If in tmux
+#   - `1`: If not in tmux
+# ```
 bu_env_is_in_tmux()
 {
     [[ -n "$TMUX" && ("$TERM" == screen* || "$TERM" == tmux*) ]]
 }
 
+# ```
+# *Description*:
+# Check if the current shell code is executing in an autocomplete context
+#
+# *Params*: None
+#
+# *Returns*:
+# - Exit code:
+#   - `0`: If in autocomplete context
+#   - `1`: If not in autocomplete context
+# ```
 bu_env_is_in_autocomplete()
 {
     [[ -n "$COMP_CWORD" ]]
@@ -2173,6 +2568,15 @@ bu_run_open_logs()
     esac
 }
 
+# ```
+# *Description*:
+# Sleep for a specified number of seconds, optionally displaying a progress bar if `tqdm` is available.
+#
+# *Params*:
+# - `$1`: Number of seconds to sleep
+#
+# *Returns*: None
+# ```
 bu_sleep()
 {
     local num_seconds=$1
@@ -2614,6 +3018,15 @@ bu_print_var()
     done
 }
 
+# ```
+# *Description*:
+# Pretty print the current scope stack
+#
+# *Params*: None
+#
+# *Returns*:
+# - `stdout`: Pretty printed scope stack
+# ```
 bu_scope_print()
 {
     bu_print_var BU_SCOPE_STACK
@@ -2621,6 +3034,18 @@ bu_scope_print()
 
 # MARK: Code gen
 
+# ```
+# *Description*:
+# Substitute variables in the input stream
+#
+# *Params*:
+# - `...`: List of variable names or functions to substitute.
+#          Note that functions do not take any parameters,
+#          so they are more like computed variables.
+#
+# *Returns*:
+# - `stdout`: Input stream with variables substituted
+# ```
 bu_gen_substitute()
 {
     bu_scope_push
