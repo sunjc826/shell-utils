@@ -58,6 +58,10 @@ bu_preinit_register_user_defined_subcommand_dir()
         *.txt|README|README.*|*.md) 
             continue
             ;;
+        __*)
+            # 2 underscores in front can be used to hide scripts
+            continue
+            ;;
         esac
 
         command=${file%.sh}

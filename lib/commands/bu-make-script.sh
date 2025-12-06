@@ -97,7 +97,12 @@ local template=
 target=$dir/$name.sh
 template=$BU_LIB_TEMPLATE_DIR/script_template.sh
 
-mkdir -p "$(dirname -- "$target")"
+mkdir -p "$dir"
+
+if [[ ! -e "$dir"/__bu_entrypoint_decl.sh ]]
+then
+    bu_gen_substitute BU_DIR <"$BU_LIB_TEMPLATE_DIR"/bu_entrypoint_decl_template.sh >"$dir"/__bu_entrypoint_decl.sh
+fi
 
 if [[ -e "$target" ]]
 then
@@ -118,7 +123,7 @@ fi
 
 (
     SCRIPT_NAME=$name
-    bu_gen_substitute BU_DIR SCRIPT_NAME <"$template" >"$target"
+    bu_gen_substitute SCRIPT_NAME <"$template" >"$target"
 )
 
 bu_edit_file "$target" || true
