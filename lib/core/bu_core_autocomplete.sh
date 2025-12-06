@@ -256,7 +256,7 @@ bu_autocomplete_get_completion_func()
     case "$BU_RET" in
     *' -F '*)
         # Strip everything before (inclusive of) -F
-        BU_RET=${BU_RET#*  -F }
+        BU_RET=${BU_RET#* -F }
         # Strip all words after the completion function's name
         BU_RET=${BU_RET%% *}
         ;;
@@ -281,11 +281,11 @@ bu_autocomplete_get_autocompletions()
     if ! bu_autocomplete_get_completion_func "$1"
     then
         __bu_autocomplete_completion_func_default "$1"
-    fi
-    if ! bu_autocomplete_get_completion_func
-    then
-        bu_log_err "Failed to get completion func for $1"
-        return 1
+        if ! bu_autocomplete_get_completion_func "$1"
+        then
+            bu_log_err "Failed to get completion func for $1"
+            return 1
+        fi
     fi
     local completion_func=$BU_RET
     
@@ -787,7 +787,7 @@ __bu_bind_fzf_autocomplete_impl()
         opt_space="''"
     fi
 
-    local select_command
+    local selected_command
     if selected_command=$(
         bu_autocomplete_print_autocompletions "${command_line[@]}" 2>/dev/null | uniq | __bu_fzf_current_pos --exact +s --sync -q "${command_line[-1]}" --header "$ ${command_line[*]}..."
     ) && [[ -n "$selected_command" ]]
@@ -797,10 +797,12 @@ __bu_bind_fzf_autocomplete_impl()
         local readline_line
         local readline_point
         command_line[-1]=$selected_command
+        readline_line=${command_line[*]}
         if [[ "${command_line_back:0:1}" != ' ' ]]
         then
             local len=${#command_line_back}
             command_line_back=${command_line_back#* }
+            # This can happen if command_line_back has no space
             if [[ ${#command_line_back} = "$len" ]]
             then
                 command_line_back=
