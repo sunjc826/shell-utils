@@ -193,7 +193,7 @@ bu_autocomplete_get_autocompletions()
 {
     if ! bu_autocomplete_get_completion_func "$1"
     then
-        bu_autocomplete_completion_func_default "$1"
+        __bu_autocomplete_completion_func_default "$1"
     fi
     if ! bu_autocomplete_get_completion_func
     then

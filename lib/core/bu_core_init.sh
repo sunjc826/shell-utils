@@ -112,7 +112,7 @@ __bu_init_autocomplete()
         bu_log_debug "Completing command[$completion_command] with completion_func[$completion_func]"
         complete -F "$completion_func" "$completion_command"
     done
-    complete -F bu_autocomplete_completion_func_default -D
+    complete -F __bu_autocomplete_completion_func_default -D
 }
 
 bu_init()
