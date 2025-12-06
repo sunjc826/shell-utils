@@ -1110,10 +1110,10 @@ bu_scope_pop()
     local ret=0
     for (( i=${#deferred}-1; i >= 0; i-- ))
     do
-        bu_log_debug "Cleaning up ${BU_SCOPE_STACK[-1]}: ${deferred[$i]}"
-        if ! "${deferred[$i]}"
+        bu_log_debug "Cleaning up ${BU_SCOPE_STACK[-1]}: \"${deferred[i]}\""
+        if ! ${deferred[i]}
         then
-            bu_log_err "Cleanup failed: ${deferred[$i]}"
+            bu_log_err "Cleanup failed: \"${deferred[i]}\""
             ret=1
         fi
     done
@@ -1181,7 +1181,7 @@ bu_scope_pop_function()
             bu_log_debug "Cleaning up ${BU_SCOPE_STACK[-1]}: \"${deferred[j]}\""
             if ! ${deferred[j]}
             then
-                bu_log_err "Cleanup failed: ${deferred[j]}"
+                bu_log_err "Cleanup failed: \"${deferred[j]}\""
                 ret=1
             fi
         done
@@ -2111,7 +2111,7 @@ __bu_cycle_logs()
 
 bu_run_log_command()
 {
-    if [[ -n "$COMP_LINE" ]]
+    if bu_env_is_in_autocomplete
     then
         return 0
     fi

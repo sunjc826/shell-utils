@@ -109,6 +109,8 @@ then
     fi
 fi
 
+touch "$target"
+
 if ! "$is_source_only"
 then
     chmod +x "$target"
