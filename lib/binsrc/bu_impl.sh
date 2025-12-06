@@ -17,11 +17,11 @@ __bu_impl()
         {
             printf "%q " "$BU_MASTER_COMMAND_NAME" "$@"
             echo
-        } >> "$BU_TMP_DIR"/bu_history.sh
-        mapfile -t BU_RET <"$BU_TMP_DIR"/bu_history.sh
+        } >> "$BU_HISTORY"
+        mapfile -t BU_RET <"$BU_HISTORY"
         if (( "${#BU_RET[@]}" > 1000 ))
         then
-            bu_sync_cycle_file "$BU_TMP_DIR"/bu_history.sh false 500 true
+            bu_sync_cycle_file "$BU_HISTORY" false 500 true
         fi
     fi
 

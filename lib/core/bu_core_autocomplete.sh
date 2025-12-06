@@ -640,12 +640,11 @@ bu_autocomplete_completion_func_default()
 # Taken from stackoverflow and github gist
 __bu_terminal_get_pos()
 {
-    exec </dev/tty
-    local col row oldstty=$(stty -g)
-    stty raw -echo min 0
+    local col row oldstty=$(stty -g </dev/tty)
+    stty raw -echo min 0 </dev/tty
     printf '%b' '\033[6n' >/dev/tty
     IFS='[;' read -d R _ row col </dev/tty
-    stty "$oldstty"
+    stty "$oldstty" </dev/tty
     BU_RET=$((row-1))
 }
 __bu_fzf_current_pos()
@@ -758,9 +757,9 @@ __bu_bind_fzf_autocomplete()
 # ```
 __bu_bind_fzf_history()
 {
-    touch "$BU_TMP_DIR"/bu_history.sh
+    touch "$BU_HISTORY"
     local history_result
-    if history_result=$(cat "$BU_TMP_DIR"/bu_history.sh | __bu_fzf_current_pos --exact +s --sync --header 'bu history')
+    if history_result=$(cat "$BU_HISTORY" | __bu_fzf_current_pos --exact +s --sync --header 'bu history')
     then
         READLINE_LINE=$history_result
         READLINE_POINT=${#READLINE_LINE}

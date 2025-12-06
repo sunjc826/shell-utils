@@ -47,6 +47,7 @@ BU_NAMED_CACHE_DIR=$BU_CACHE_DIR/named
 BU_HASHED_CACHE_DIR=$BU_CACHE_DIR/hashed
 BU_LOG_DIR=$BU_TMP_DIR/log
 BU_LAST_RUN_CMDS=$BU_LOG_DIR/last_run_cmds.sh
+BU_HISTORY=$BU_TMP_DIR/bu_history.sh
 
 bu_mkdir \
     "$BU_BASE_PROC_DIR" \
