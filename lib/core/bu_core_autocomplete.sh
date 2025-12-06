@@ -446,8 +446,10 @@ __bu_autocomplete_completion_func_master_helper()
             bu_user_defined_autocomplete_lazy "${args[@]:i}"
             case $? in
             "$BU_AUTOCOMPLETE_EXIT_CODE_SUCCESS")
+                shift_by=$BU_RET
                 ;;
             "$BU_AUTOCOMPLETE_EXIT_CODE_RETRY")
+                shift_by=$BU_RET
                 exit_code=$BU_AUTOCOMPLETE_EXIT_CODE_RETRY
                 ;;
             "$BU_AUTOCOMPLETE_EXIT_CODE_FAIL")

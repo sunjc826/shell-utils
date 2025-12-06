@@ -54,27 +54,44 @@ bu_user_defined_convert_command_to_key()
 
 # ```
 # *Params*
-# - `$1`: Command to convert to a key
+# - `...`: Lazy autocompletion args
 #
 # *Returns*
-# - `$BU_RET`: Key. By default it will be of the form `command-$1`, but users can override the behavior with user defined functions in `${BU_USER_DEFINED_COMPLETION_COMMAND_TO_KEY_CONVERSIONS[@]}`.
-#              The first user defined function to perform the conversion successfully will take priority.
+# - `${COMPREPLY[@]}`: Original contents plus new autocompletions
+# - `$BU_RET`: Number of lazy autocompletion args consumed
 #
 # Each function will be of the following signature
 # *Function Params*
-# - `$1`: Command to convert to a key
+# - `...`: Lazy autocompletion args
 #
 # *Function Returns*
 # - Exit code:
-#   - 0: Function successfully maps command to a key
-#   - 1 or any other non-zero exit code: Mapping is unsuccessful
-# - `$BU_RET`: If exit code is 0, then this should be the key
+#   - 0: Function successfully parses the lazy autocompletion args
+#   - 124: Function successfully parses the lazy autocompletion args,
+#          needs to await further input from user and retry before moving on to the next word.
+#   - 1: Function does not handle the lazy autocompletion args
+# - `${COMPREPLY[@]}`: If exit code is 0, then this is the original contents plus new autocompletions
+# - `$BU_RET`: If exit code is 0, then this should be the number of lazy autocompletion args consumed
 # ```
 bu_user_defined_autocomplete_lazy()
 {
     local fn
-    for fn in "${BU_USER_DEFINED_}"
+    local exit_code=1
+    local fn_exit_code
+    BU_RET=0
+    for fn in "${BU_USER_DEFINED_AUTOCOMPLETE_HELPERS[@]}"
     do
-        :
+        fn "$@"
+        fn_exit_code=$?
+        case "$fn_exit_code" in
+        0|124)
+            exit_code=$fn_exit_code
+            break
+            ;;
+        1|*)
+            continue
+            ;;
+        esac
     done
+    return "$exit_code"
 }
