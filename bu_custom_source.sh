@@ -5,7 +5,7 @@
 # ```
 # The bu repo base directory
 # ```
-BU_DIR=$PWD
+export BU_DIR=$PWD
 # ```
 # The directory where non user defined executables are placed
 # ```

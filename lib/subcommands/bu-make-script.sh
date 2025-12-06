@@ -116,7 +116,7 @@ fi
 
 (
     SCRIPT_NAME=$name
-    bu_gen_substitute SCRIPT_NAME <"$template" >"$target"
+    bu_gen_substitute BU_DIR SCRIPT_NAME <"$template" >"$target"
 )
 
 bu_edit_file "$target" || true

@@ -2,14 +2,28 @@
 function __bu_@SCRIPT_NAME@_main()
 {
 set -e
+# Considering how slow WSL1 is, let's optimize a bit here too
 local script_name
-script_name=$(basename -- "$BASH_SOURCE")
 local script_dir
-script_dir=$(realpath -- "$(dirname -- "$BASH_SOURCE")")
+case "$BASH_SOURCE" in
+*/*)
+    script_name=${BASH_SOURCE##*/}
+    script_dir=${BASH_SOURCE%/*}
+    ;;
+*)
+    script_name=$BASH_SOURCE
+    script_dir=.
+    ;;
+esac
 pushd "$script_dir" &>/dev/null
+script_dir=$PWD
 
-# shellcheck source=../core/bu_core_base.sh
+# This seems to be the most important optimization for WSL1, autocomplete is way more responsive
+if [[ -z "$COMP_CWORD" ]]
+then
+# shellcheck source=@BU_DIR@/bu_entrypoint.sh
 source "$BU_DIR"/bu_entrypoint.sh
+fi
 
 bu_exit_handler_setup
 bu_scope_push_function
