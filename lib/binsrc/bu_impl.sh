@@ -11,8 +11,12 @@ __bu_impl()
         __bu_cli_help
         return
     fi
-
-    if (( ${#BASH_SOURCE[@]} == 1 ))
+    # We expect the following values of BASH_SOURCE and FUNCNAME if bu was invoked directly on the command line:
+    # .../lib/binsrc/bu_impl.sh .../lib/binsrc/bu_impl.sh ./lib/core/bu_core_cli.sh
+    # __bu_impl                 source                    bu
+    # Thus the depth of BASH_SOURCE would be 3 if the command is invoked directly
+    # We will only write direct invocations to $BU_HISTORY to avoid spam. 
+    if (( ${#BASH_SOURCE[@]} <= 3 ))
     then
         {
             printf "%q " "$BU_CLI_COMMAND_NAME" "$@"
