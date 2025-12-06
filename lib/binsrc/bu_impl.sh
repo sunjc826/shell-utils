@@ -8,14 +8,14 @@ __bu_impl()
     if ((!$#))
     then
         bu_log_warn "No arguments specified, printing help"
-        __bu_help
+        __bu_cli_help
         return
     fi
 
     if (( ${#BASH_SOURCE[@]} == 1 ))
     then
         {
-            printf "%q " "$BU_MASTER_COMMAND_NAME" "$@"
+            printf "%q " "$BU_CLI_COMMAND_NAME" "$@"
             echo
         } >> "$BU_HISTORY"
         mapfile -t BU_RET <"$BU_HISTORY"
@@ -28,8 +28,8 @@ __bu_impl()
     local bu_command=$1
     shift
     local remaining_options=("$@")
-    local function_or_script_path=${BU_USER_DEFINED_COMMANDS[$bu_command]}
-    __bu_master_command_properties "$bu_command"
+    local function_or_script_path=${BU_COMMANDS[$bu_command]}
+    __bu_cli_command_properties "$bu_command"
     local properties=$BU_RET
     local exit_code=0
     case "$properties" in
@@ -47,7 +47,7 @@ __bu_impl()
         ;;
     *)
         bu_log_err "Invalid command[$bu_command] properties[$properties]"
-        __bu_help
+        __bu_cli_help
         return 1
         ;;
     esac

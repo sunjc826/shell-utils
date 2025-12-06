@@ -147,10 +147,97 @@ bu_autocomplete_parse_case_block_options_cached()
         bu_stdout_to_ret --lines bu_autocomplete_parse_case_block_options "$function_or_script_path" "$start_indicator" "$end_indicator" "$start_lineno"
 }
 
-bu_autocomplete_parse_command_context()
+bu_parse_multiselect()
 {
-    :
+    if [[ -n "$error_msg" ]]
+    then
+        return
+    fi
+
+    autocompletion=(--options-at "${BASH_SOURCE[1]}" "${BASH_LINENO[0]}" "$@")
+    shift_by=1
+    : $((__bu_g_shift_by++))
 }
+
+bu_parse_positional()
+{
+    local num_args=$1
+    shift
+    if (( shift_by >= "$num_args" ))
+    then
+        return
+    fi
+    : $((shift_by++)) $((__bu_g_shift_by++))
+    autocompletion=("$@")
+}
+
+bu_parse_command_context()
+{
+    BU_RET=()
+    local start_marker=$1
+    if (($# < 2))
+    then
+        return
+    fi
+
+    local end_marker=${start_marker:2}--
+    autocompletion=(
+        :"$end_marker"
+        --call bu "${start_marker:2}"
+    )
+
+    local i
+    for (( i = 2; i <= $#; i++ ))
+    do
+        if [[ "${!i}" = "$end_marker" ]]
+        then
+            break
+        fi
+        BU_RET+=("${!i}")
+    done
+    if [[ "${!i}" = "$end_marker" ]]
+    then
+        autocompletion=()
+    else
+        autocompletion+=("${BU_RET[@]}" call--)
+    fi
+
+    : $(( shift_by += i - 1 )) $(( __bu_g_shift_by += i - 1 ))
+}
+
+bu_parse_nested()
+{
+    local nested_impl=$1
+    shift
+    if (( shift_by >= $# ))
+    then
+        return
+    fi
+    shift "$shift_by"
+    local nested_args=("$@")
+    local saved_shift_by=$shift_by
+    shift_by=0
+    local __bu_g_shift_by=0
+    "$nested_impl" "${nested_args[@]}"
+    : $((shift_by += __bu_g_shift_by))
+}
+
+# MARK: Parse errors
+bu_parse_error_enum()
+{
+    local unrecognized_option=$1
+    is_help=true
+    error_msg="Unrecognized option[$unrecognized_option] for function[${FUNCNAME[1]}]"
+}
+
+bu_parse_error_argn()
+{
+    local option=$1
+    local num_args_given=$2
+    is_help=true
+    error_msg="Expected $shift_by arguments for function[${FUNCNAME[1]}], option[$option], got $num_args_given arguments"
+}
+
 
 # ```
 # *Description*:
@@ -546,12 +633,12 @@ __bu_autocomplete_completion_func_master()
     COMPREPLY=()
     if ((COMP_CWORD == 1))
     then
-        bu_compgen -W "${BU_USER_DEFINED_COMMANDS[*]}" -- "$cur_word"
+        bu_compgen -W "${BU_COMMANDS[*]}" -- "$cur_word"
         return 0
     fi
 
     local arg1=${COMP_WORDS[1]}
-    local function_or_script_path=${BU_USER_DEFINED_COMMANDS[$arg1]}
+    local function_or_script_path=${BU_COMMANDS[$arg1]}
     if [[ -z "$function_or_script_path" ]]
     then
         return 1
@@ -767,143 +854,4 @@ __bu_bind_fzf_history()
         READLINE_LINE=$history_result
         READLINE_POINT=${#READLINE_LINE}
     fi
-}
-
-# MARK: Top-level CLI
-
-# ```
-# The master command name. Default is `bu`, but users can override it by defining `BU_USER_DEFINED_MASTER_COMMAND_NAME`.
-# ```
-BU_MASTER_COMMAND_NAME=${BU_USER_DEFINED_MASTER_COMMAND_NAME:-bu}
-
-__bu_sort_keys()
-{
-    tr ' ' '\n' | sort
-}
-
-# ```
-# *Description*:
-# Gets the properties of a bu sub-command
-#
-# *Params*
-# - `$1`: bu sub-command
-#
-# *Returns*
-# - `$BU_RET`: Properties of the command. One of `function`, `source`, `execute`, or `no-default-found`.
-# ```
-__bu_master_command_properties()
-{
-    local bu_command=$1
-    local function_or_script_path=${BU_USER_DEFINED_COMMANDS[$bu_command]}
-    local properties="${BU_USER_DEFINED_COMMAND_PROPERTIES[$bu_command]}"
-    if [[ -z "$properties" ]]
-    then
-        if bu_symbol_is_function "$function_or_script_path"
-        then
-            properties=function
-        elif [[ -x "$function_or_script_path" ]]
-        then
-            properties=execute
-        elif [[ -f "$function_or_script_path" ]]
-        then
-            properties=source
-        else
-            properties=no-default-found
-        fi
-    fi
-    BU_RET=$properties
-}
-
-# ```
-# *Description*:
-# Displays help information for the master command
-#
-# *Params*: None
-#
-# *Returns*: None
-# ```
-__bu_help()
-{
-    echo "${BU_TPUT_BOLD}${BU_TPUT_DARK_BLUE}Help for ${BU_MASTER_COMMAND_NAME}${BU_TPUT_RESET}"
-    echo "${BU_MASTER_COMMAND_NAME} is the Bash CLI implemented by shell-utils"
-
-    local key
-    local value
-
-    local -A executable_scripts=()
-    local -A source_scripts=()
-    local -A functions=()
-    for key in "${!BU_USER_DEFINED_COMMANDS[@]}"
-    do
-        value=${BU_USER_DEFINED_COMMANDS[$key]}
-        __bu_master_command_properties "$key"
-        case "$properties" in
-        execute)
-            executable_scripts[$key]=$value
-            ;;
-        source)
-            source_scripts[$key]=$value
-            ;;
-        function)
-            functions[$key]=$value
-            ;;
-        esac
-    done
-
-
-    echo
-    echo "The following commands using ${BU_TPUT_UNDERLINE}a new shell context${BU_TPUT_RESET} are available"
-    echo
-
-    for key in $(__bu_sort_keys <<<"${!executable_scripts[*]}")
-    do
-        value=${executable_scripts[$key]}
-        printf "    ${BU_TPUT_BOLD}%-30s${BU_TPUT_RESET}    %s\n" "$key" "$value"
-    done
-
-    echo
-    echo "The following commands using ${BU_TPUT_UNDERLINE}the current shell context${BU_TPUT_RESET} are available"
-    echo
-    
-    for key in $(__bu_sort_keys <<<"${!source_scripts[*]}")
-    do
-        value=${source_scripts[$key]}
-        printf "    ${BU_TPUT_BOLD}%-30s${BU_TPUT_RESET}    %s\n" "$key" "$value"
-    done
-
-    echo
-    echo "The following functions are available"
-    echo
-
-    for key in $(__bu_sort_keys <<<"${!functions[*]}")
-    do
-        value=${functions[$key]}
-        printf "    ${BU_TPUT_BOLD}%-30s${BU_TPUT_RESET}    %s\n" "$key" "$value"
-    done
-
-    echo
-    echo "The following ${BU_TPUT_UNDERLINE}key bindings${BU_TPUT_NO_UNDERLINE} are available"
-    echo
-
-    for key in $(__bu_sort_keys <<<"${!BU_KEY_BINDINGS[*]}")
-    do
-        value=${BU_KEY_BINDINGS[$key]}
-        printf "    %s -> %s\n" "$key" "$value"
-    done
-} >&2
-
-# ```
-# *Description*:
-# The top-level CLI command `bu`
-#
-# *Params*:
-# - `$1`: Sub-command
-# - `...`: All parameters are passed to the sub-command
-#
-# *Returns*:
-# - Exit code of the sub-command
-# ```
-bu()
-{
-    builtin source bu_impl.sh "$@"
 }

@@ -19,6 +19,10 @@ BU_LIB_BINSRC_DIR=$BU_DIR/lib/binsrc
 # ```
 BU_LIB_CORE_DIR=$BU_DIR/lib/core
 
+BU_LIB_TEMPLATE_DIR=$BU_DIR/lib/templates
+
+BU_BUILTIN_COMMANDS_DIR=$BU_DIR/lib/subcommands
+
 
 # ```
 # Traditionally, bash has 3 states for a scalar variable

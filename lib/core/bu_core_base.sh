@@ -2074,6 +2074,28 @@ bu_run_log_command()
     bu_scope_add_cleanup bu_sync_cycle_last_run_cmds
 }
 
+bu_edit_file()
+{
+    local log_file=$1
+    local editor=${VISUAL:-$EDITOR}
+    case "$editor" in
+    *'bu_code_wait.sh'|'code '*)
+        code "$log_file"
+        ;;
+    '')
+        if command -v code &>/dev/null
+        then
+            code "$log_file"
+        else
+            vim "$log_file"
+        fi 
+        ;;
+    *)
+        $editor "$log_file"
+        ;;
+    esac
+}
+
 bu_run_open_logs()
 {
     local log_file=$1
@@ -2537,7 +2559,58 @@ bu_print_var()
     done
 }
 
-# MARK: Pre-Init utilities
+# MARK: Code gen
+
+bu_gen_substitute()
+{
+    bu_scope_push
+    bu_scoped_set_opt pipefail
+    local vars_to_subst=("$@")
+    local var
+    local sed_expr=()
+    local value
+    local var_result
+    for var in "${vars_to_subst[@]}"
+    do
+        case "$(type -t "$var")" in
+        function|file)
+            var_result="$var"_result
+            if [[ -z "${var_result}" ]]
+            then
+                if ! value=$("$var" | tr '\n' '\0' | sed 's/\x00/\\n/g')
+                then
+                    bu_log_err "Evaluation of $var failed"
+                    bu_scope_pop
+                    return 1
+                fi
+                declare -g "$var"_result=$value
+            else
+                value=${!var_result}
+            fi
+            ;;
+        *)
+            if [[ ! -v "$var" ]]
+            then
+                bu_log_warn "$var is undefined, despite being in the substitution list, skipping..."
+                continue
+            fi
+            value=${!var}
+            ;;
+        esac
+        if bu_is_null "$value"
+        then
+            continue
+        fi
+        sed_expr+=('s'$'\001''@'"$var"'@'$'\001'"$value"$'\001''g')
+    done
+    printf '%s\n' "${sed_expr[@]}" > "$BU_PROC_TMP_DIR"/sed.txt
+    sed -f "$BU_PROC_TMP_DIR"/sed.txt
+    bu_scope_pop
+}
+
+
+
+# MARK: Bindings
 
 # ```
 # *Description*:
