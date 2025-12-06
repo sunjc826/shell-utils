@@ -2,8 +2,21 @@
 # define a custom source func ahead of other functions
 # e.g. to ensure the correctness of --__bu-once
 
+# ```
+# The bu repo base directory
+# ```
 BU_DIR=$PWD
+# ```
+# The directory where non user defined executables are placed
+# ```
 BU_LIB_BIN_DIR=$BU_DIR/lib/bin
+# ```
+# The directory where non user defined sourceable shell scripts are placed
+# ```
+BU_LIB_BINSRC_DIR=$BU_DIR/lib/binsrc
+# ```
+# The directory of the core library
+# ```
 BU_LIB_CORE_DIR=$BU_DIR/lib/core
 
 

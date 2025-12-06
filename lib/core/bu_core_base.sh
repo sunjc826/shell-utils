@@ -361,6 +361,18 @@ bu_cached_keyed_execute()
 }
 
 # MARK: Colors
+
+# ```
+# *Description*:
+# Setup tput color codes into variables
+#
+# *Params*:
+# - `$1`: Name of the output variable to store the tput code
+# - `...`: Arguments to pass to tput
+#
+# *Returns*:
+# - `${!1}`: Variable containing the tput code
+# ```
 __bu_setup_tput()
 {
     local -n outvar=$1
@@ -979,6 +991,22 @@ bu_scope_push_function()
     BU_SCOPE_STACK+=("-${#BU_SCOPE_STACK[@]}")
 }
 
+# ```
+# *Description*:
+# Get the current scope handle
+#
+# *Params*: None
+#
+# *Returns*:
+# - `$BU_RET`: Current scope handle
+#
+# *Examples*:
+# ```bash
+# bu_scope_push
+# bu_scope_handle # $BU_RET contains the current scope handle, e.g. 0
+# bu_scope_pop
+# ```
+# ```
 bu_scope_handle()
 {
     if ((!"${#BU_SCOPE_STACK[@]}"))
@@ -1010,6 +1038,21 @@ bu_scope_add_cleanup()
     bu_scope_handle_add_cleanup "${BU_SCOPE_STACK[-1]}"
 }
 
+# ```
+# *Description*:
+# Pop the current scope from the scope stack and execute all registered cleanup commands
+#
+# *Params*: None
+# *Returns*: None
+#
+# *Examples*:
+# ```bash
+# bu_scope_push
+# touch /tmp/some_temp_file
+# bu_scope_add_cleanup rm -f /tmp/some_temp_file
+# bu_scope_pop
+# ```
+# ```
 bu_scope_pop()
 {
     if ((!"${#BU_SCOPE_STACK[@]}"))
@@ -1034,6 +1077,32 @@ bu_scope_pop()
     return "$ret"
 }
 
+# ```
+# *Description*:
+# Pop the current function-level scope including all nested scopes from the scope stack and execute all registered cleanup commands
+#
+# *Params*: None
+# *Returns*: None
+#
+# *Examples*:
+# ```bash
+# function my_function() {
+#     bu_scope_push_function
+#     touch /tmp/some_temp_file
+#     bu_scope_add_cleanup rm -f /tmp/some_temp_file
+#     if some_condition; then
+#         # Nested scope
+#         bu_scope_push
+#         touch /tmp/some_temp_file2
+#         bu_scope_add_cleanup rm -f /tmp/some_temp_file2
+#         # Early return with cleanup
+#         bu_scope_pop_function
+#         return
+#     fi
+#     bu_scope_pop_function
+# }
+# ```
+# ```
 bu_scope_pop_function()
 {
     if ((!"${#BU_SCOPE_STACK[@]}"))
@@ -1090,16 +1159,45 @@ bu_scope_pop_all()
 }
 
 # MARK: Scope-related utilities
+
+# ```
+# *Description*:
+# Call pushd with suppressed output
+#
+# *Params*:
+# - `$1`: Directory to change to
+#
+# *Returns*:
+# - Exit code of the `pushd` command
+# ```
 bu_pushd_silent()
 {
-    pushd "$1" >/dev/null || return 1
+    pushd "$1" >/dev/null
 }
 
+# ```
+# *Description*:
+# Call popd with suppressed output
+#
+# *Params*: None
+#*Returns*:
+# - Exit code of the `popd` command
+# ```
 bu_popd_silent()
 {
-    popd >/dev/null || return 1
+    popd >/dev/null
 }
 
+# ```
+# *Description*:
+# Close a file descriptor
+#
+# *Params*:
+# - `$1`: File descriptor to close
+#
+# *Returns*:
+# - Exit code of the `exec` command
+# ```
 bu_close_fd()
 {
     local fd=$1
@@ -1226,6 +1324,16 @@ bu_exit_handler_restore()
 }
 
 # MARK: Synchronization, file management
+
+# ```
+# *Description*:
+# Acquire an exclusive lock on a file, storing the lock file descriptor in a companion .lockfd file
+#
+# *Params*:
+# - `$1`: File path to lock
+#
+# *Returns*: None
+# ```
 bu_sync_acquire_file()
 {
     local file_path=$1
@@ -1238,6 +1346,15 @@ bu_sync_acquire_file()
     echo "$lockfile_fd" > "$fd_path"
 }
 
+# ```
+# *Description*:
+# Acquire an exclusive lock on a file descriptor
+#
+# *Params*:
+# - `$1`: File descriptor to lock
+#
+# *Returns*: None
+# ```
 bu_sync_acquire_fd()
 {
     local fd=$1
@@ -1245,6 +1362,15 @@ bu_sync_acquire_fd()
     flock --exclusive "$fd"
 }
 
+# ```
+# *Description*:
+# Release an exclusive lock on a file locked by bu_sync_acquire_file, using the lock file descriptor stored in the companion .lockfd file
+#
+# *Params*:
+# - `$1`: File path to unlock
+#
+# *Returns*: None
+# ```
 bu_sync_release_file()
 {
     local file_path=$1
@@ -1281,6 +1407,15 @@ bu_sync_release_file()
     return 0
 }
 
+# ```
+# *Description*:
+# Release an exclusive lock on a file descriptor locked by bu_sync_acquire_fd
+#
+# *Params*:
+# - `$1`: File descriptor to unlock
+#
+# *Returns*: None
+# ```
 bu_sync_release_fd()
 {
     local fd=1
@@ -1294,6 +1429,19 @@ bu_sync_release_fd()
     fi
 }
 
+# ```
+# *Description*:
+# Cycle a log file, keeping only the last N (possibly unique) lines
+# *Params*:
+# - `$1`: File path to cycle
+# - `$2`: Whether to acquire a lock on the file (true/false) whilst cycling
+# - `$3` (optional): Number of lines to keep (default: all)
+# - `$4`: Whether to keep only unique lines. 
+#         If true, only the last occurrence of each line is kept. (more expensive operation)
+#         If false, the uniq command is used to remove consecutive duplicate lines.
+#
+# *Returns*: None
+# ```
 bu_sync_cycle_file()
 {
     local filepath=$1
@@ -1340,6 +1488,24 @@ bu_sync_cycle_last_run_cmds()
     bu_sync_cycle_file "$BU_LAST_RUN_CMDS" true 500 false || return 1
 }
 
+# ```
+# *Description*:
+# Cycle numbered files, e.g. log files
+#
+# *Params*:
+# - `$1`: Base file name (without extension)
+# - `$2`: Cycle length (number of files to keep)
+# - `$3` (optional): Target directory (default: current directory)
+# - `$4` (optional): File extension (default: log)
+#
+# *Returns*:
+# - Exit code:
+#   - `0`: Success
+#   - `1`: Failure
+# - `${BU_RET[@]}`: Array containing the write and read file descriptors for the new file
+#                   (`BU_RET[0]`: write fd, `BU_RET[1]`: read fd)
+#
+# ```
 bu_sync_cycle_numbered_files()
 {
     local file_base=$1
@@ -1761,6 +1927,16 @@ bu_vscode_is_socket_inactive()
 }
 
 # MARK: Environment/Path utilities
+# ```
+# *Description*:
+# Get function definition location
+#
+# *Params*:
+# - `$1`: Function name
+#
+# *Returns*:
+# - `stdout`: Function definition location
+# ```
 bu_env_whichfunc()
 {
     shopt -s extdebug
@@ -1862,7 +2038,18 @@ bu_env_rename_func()
     eval "$(declare -f "$old_func_name" | sed -r "s/\b$old_func_name\b/$new_func_name/g")"
 }
 
-# MARK: Pretty printers
+# MARK: Pretty 
+
+# ```
+# *Description*:
+# Pretty print associative (or non-associative) array variable
+#
+# *Params*:
+# - `$1`: Name of the associative array variable
+#
+# *Returns*:
+# - `stdout`: Pretty printed key-value pairs of the associative array
+# ```
 bu_print_var()
 {
     local -n __bu_print_var_name=$1
@@ -1876,9 +2063,15 @@ bu_print_var()
 }
 
 # MARK: Pre-Init utilities
+
+# ```
+# *Description*:
+# Edit the current command line using the default editor
+# Meant to be bound to a readline keybinding
+# ```
 __bu_bind_edit()
 {
-    local editor=${EDITOR:-vim}
+    local editor=${VISUAL:-${EDITOR:-vim}}
     local tmp_file=$(mktemp).sh
     printf '%s\n' "$READLINE_LINE" > "$tmp_file"
     $editor "$tmp_file"
@@ -1887,6 +2080,11 @@ __bu_bind_edit()
     rm -f "$tmp_file"
 }
 
+# ```
+# *Description*:
+# Toggle gdb prefix on the current command line
+# Meant to be bound to a readline keybinding
+# ```
 __bu_bind_toggle_gdb()
 {
     local words=()

@@ -7,6 +7,51 @@ source "$BU_NULL"
 # MARK: Parsers
 __BU_AUTOCOMPLETE_WORKING_DIRECTORY=.
 __BU_AUTOCOMPLETE_OPTION_REGEX='([-[:alnum:]_/]+[[:space:]]*\|?[[:space:]]*)*[-[:alnum:]_/]+[[:space:]]*'
+
+# ```
+# *Description*:
+# Append the content of a file to an existing array variable, splitting by lines
+#
+# *Params*:
+# - `$1`: File to read
+# - `$2` (optional): Name of the array variable to append to (default: `BU_RET`)
+#
+# *Returns*:
+# - `${BU_RET[@]}` or the array variable named in `$2`: Content of the file appended to the array
+#
+# *Examples*:
+# ```bash
+# bu_cat_arr_append /path/to/file # ${BU_RET[@]} has the file content appended
+# bu_cat_arr_append /path/to/file MY_ARR # ${MY_ARR[@]} has the file content appended
+# ```
+# ```
+bu_cat_arr_append()
+{
+    local file=$1
+    local ret=${2:-BU_RET}
+    mapfile -t <"$file"
+    eval "$ret"+=\( \"\${MAPFILE[@]}\" \)
+}
+
+# ```
+# *Description*:
+# Parses out all the cases inside a case block. 
+#
+# *Params*
+# - `$1`: Function name or script path to parse
+# - `$2` (optional): Start indicator regex (default: `case .* in`)
+# - `$3` (optional): End indicator regex (default: `esac`)
+# - `$4` (optional): Start line number of the function/script (default: 1)
+#
+# *Returns*:
+# - `stdout`: List of options inside the case block, separated by newlines and spaces
+#
+# *Examples*:
+# ```bash
+# bu_autocomplete_parse_case_block_options my_function
+# bu_autocomplete_parse_case_block_options /path/to/script.sh
+# ```
+# ```
 bu_autocomplete_parse_case_block_options()
 {
     local function_or_script_path=$1
@@ -67,6 +112,27 @@ bu_autocomplete_parse_case_block_options()
     ' | tr '|' ' '
 }
 
+# ```
+# *Description*:
+# Cached version of `bu_autocomplete_parse_case_block_options`
+#
+# *Params*
+# - `$1`: Function name or script path to parse
+# - `$2` (optional): Start indicator regex (default: `case .* in`)
+# - `$3` (optional): End indicator regex (default: `esac`)
+# - `$4` (optional): Start line number of the function/script (default: 1)
+# - `$5`: Cache key
+# - `$6` (optional): Invalidate cache boolean (default: false)
+#
+# *Returns*:
+# - `${BU_RET[@]}`: List of options inside the case block
+#
+# *Examples*:
+# ```bash
+# bu_autocomplete_parse_case_block_options_cached my_function '' '' '' my_cache_key false # ${BU_RET[@]} has the options
+# bu_autocomplete_parse_case_block_options_cached /path/to/script.sh '' '' '' my_cache_key false # ${BU_RET[@]} has the options
+# ```
+# ```
 bu_autocomplete_parse_case_block_options_cached()
 {
     local function_or_script_path=$1
@@ -86,6 +152,16 @@ bu_autocomplete_parse_command_context()
     :
 }
 
+# ```
+# *Description*:
+# Gets the completion function name for a given command
+#
+# *Params*:
+# - `$1`: Command to get the completion function for
+#
+# *Returns*:
+# - `$BU_RET`: Name of the completion function
+# ```
 bu_autocomplete_get_completion_func()
 {
     local completion_for=$1
@@ -103,6 +179,16 @@ bu_autocomplete_get_completion_func()
     esac
 }
 
+# ```
+# *Description*:
+# Populates the `${COMPREPLY[@]}` array with autocompletions for a given command line
+#
+# *Params*:
+# - `...`: All parameters are treated as the command line to get autocompletions for
+#
+# *Returns*:
+# - `${COMPREPLY[@]}`: List of autocompletions
+# ```
 bu_autocomplete_get_autocompletions()
 {
     if ! bu_autocomplete_get_completion_func "$1"
@@ -145,6 +231,16 @@ bu_autocomplete_get_autocompletions()
     return "$ret"
 }
 
+# ```
+# *Description*:
+# Adds autocompletions to the current `${COMPREPLY[@]}` array
+#
+# *Params*:
+# - All parameters are passed to `bu_autocomplete_get_autocompletions`
+#
+# *Returns*:
+# - `${COMPREPLY[@]}`: Original contents plus new autocompletions
+# ```
 bu_autocomplete_add_autocompletions()
 {
     local saved_compreply=("${COMPREPLY[@]}")
@@ -152,26 +248,65 @@ bu_autocomplete_add_autocompletions()
     COMPREPLY+=("${saved_compreply[@]}")
 }
 
+# ```
+# *Description*:
+# Prints autocompletions to stdout
+#
+# *Params*:
+# - All parameters are passed to `bu_autocomplete_get_autocompletions`
+#
+# *Returns*:
+# - `stdout`: List of autocompletions, one per line
+# ```
 bu_autocomplete_print_autocompletions()
 {
     bu_autocomplete_get_autocompletions "$@"
     printf "%s\n" "${COMPREPLY[@]}"
 }
 
+# ```
+# *Description*:
+# Wrapper around `compgen` that captures output into `${COMPREPLY[@]}`
+#
+# *Params*:
+# - `...`: All parameters are passed to `compgen`
+#
+# *Returns*:
+# - `${COMPREPLY[@]}`: Output of `compgen`
+# ```
 bu_compgen()
 {
     # Some modern versions of bash support a target variable, but we don't assume this
     bu_stdout_to_ret --lines -o COMPREPLY compgen "$@"
 }
 
-# Parses the options from the first occurring case block of the file/function
+# ```
+# *Description*:
+# Appends options parsed from the first occurring case block of the file/function to `${COMPREPLY[@]}`
+#
+# *Params*:
+# - `function_or_script_path`: Path to the function or script to parse options from
+#
+# *Returns*:
+# - `${COMPREPLY[@]}`: Original contents plus new options
+# ```
 __bu_autocomplete_compreply_append_options_of()
 {
     local function_or_script_path=$1
     COMPREPLY+=($(bu_autocomplete_parse_case_block_options "$function_or_script_path"))
 }
 
-# Parses the options from the case block following the lineno of the file
+# ```
+# *Description*:
+# Appends options parsed from the case block following the given line number of the file to `${COMPREPLY[@]}`
+#
+# *Params*:
+# - `$1`: Path to the script to parse options from
+# - `$2`: Line number of the case block to parse options from
+#
+# *Returns*:
+# - `${COMPREPLY[@]}`: Original contents plus new options
+# ```
 __bu_autocomplete_compreply_append_options_at()
 {
     local script_path=$1
@@ -218,9 +353,19 @@ __bu_autocomplete_compreply_append_find_files()
     COMPREPLY+=("${candidates[@]}")
 }
 
-# MARK: Completion 
+# MARK: Completion
+
+# ```
+# Autocomplete worked successfully
+# ```
 BU_AUTOCOMPLETE_EXIT_CODE_SUCCESS=0
+# ```
+# Autocomplete failed
+# ```
 BU_AUTOCOMPLETE_EXIT_CODE_FAIL=1
+# ```
+# Autocomplete should be retried without moving on to the next word
+# ```
 BU_AUTOCOMPLETE_EXIT_CODE_RETRY=124
 __bu_autocomplete_completion_func_master_helper()
 {
@@ -317,11 +462,27 @@ __bu_autocomplete_completion_func_master_helper()
     return "$exit_code"
 }
 
+# ```
+# *Description*:
+# Implementation of the master command completion function for sourcing scripts.
+# Does not use any of the global COMP_ variables, instead takes all necessary parameters to be more self-contained.
+#
+# *Params*
+# - `$1`: Completion command path
+# - `$2`: Current word being completed
+# - `$3`: Previous word
+# - `$4`: Current word index
+# - `$5`: Tail being completed
+# - `...`: All words in the command line
+#
+# *Returns*
+# - `${COMPREPLY[@]}`: List of autocompletions
+# ```
 __bu_autocomplete_completion_func_master_impl()
 {
     local completion_command_path=$1
     local cur_word=$2
-    local cur_word=$3
+    local prev_word=$3
     local comp_cword=$4
     local tail=$5
     shift 5
@@ -358,6 +519,18 @@ __bu_autocomplete_completion_func_master_impl()
     fi
 }
 
+# ```
+# *Description*:
+# Completion function for the master command `bu`
+#
+# *Params*:
+# - `$1`: Completion command (should be `bu`)
+# - `$2`: Current word being completed
+# - `$3`: Previous word
+#
+# *Returns*:
+# - `${COMPREPLY[@]}`: List of autocompletions
+# ```
 bu_autocomplete_completion_func_master()
 {
     local completion_command=$1
@@ -399,6 +572,18 @@ bu_autocomplete_completion_func_master()
     __bu_autocomplete_completion_func_master_impl "$function_or_script_path" "$cur_word" "$prev_word" "$comp_cword" "$tail" "${comp_words[@]}"
 }
 
+# ```
+# *Description*:
+# Completion function that retrieves autocompletions from a cached file
+#
+# *Params*:
+# - `$1`: Completion command
+# - `$2`: Current word being completed
+# - `$3`: Previous word
+#
+# *Returns*:
+# - `${COMPREPLY[@]}`: List of autocompletions
+# ```
 bu_autocomplete_completion_func_cached()
 {
     local completion_command=$1
@@ -412,6 +597,22 @@ bu_autocomplete_completion_func_cached()
     bu_compgen -W "$BU_RET" -- "$cur_word"
 }
 
+# ```
+# *Description*:
+# Completion function for the default case when no specific completion function is found.
+#
+# *Params*:
+# - `$1`: Completion command
+# - `$2`: Current word being completed (unused)
+# - `$3`: Previous word (unused)
+#
+# *Returns*:
+# - Exit code:
+#   - 0: Autocomplete worked successfully
+#   - 124: Autocomplete should be retried
+#   - 1 or any other code: Autocomplete failed
+# - `${COMPREPLY[@]}`: List of autocompletions
+# ```
 bu_autocomplete_completion_func_default()
 {
     local completion_command=$1
@@ -532,11 +733,29 @@ __bu_bind_fzf_autocomplete_impl()
     fi
 }
 
+# ```
+# *Description*:
+# Binds fzf to the autocomplete of the current command line at the cursor position.
+# This is a readline binding function.
+#
+# *Params*: None
+#
+# *Returns*: None
+# ```
 __bu_bind_fzf_autocomplete()
 {
     __bu_bind_fzf_autocomplete_impl "${READLINE_LINE:0:$READLINE_POINT}" "${READLINE_LINE:$READLINE_POINT}" false
 }
 
+# ```
+# *Description*:
+# Binds fzf to the history of bu command invocations for easy searching.
+# This is a readline binding function.
+#
+# *Params*: None
+#
+# *Returns*: None
+# ```
 __bu_bind_fzf_history()
 {
     touch "$BU_TMP_DIR"/bu_history.sh
@@ -549,11 +768,27 @@ __bu_bind_fzf_history()
 }
 
 # MARK: Top-level CLI
+
+# ```
+# The master command name. Default is `bu`, but users can override it by defining `BU_USER_DEFINED_MASTER_COMMAND_NAME`.
+# ```
+BU_MASTER_COMMAND_NAME=${BU_USER_DEFINED_MASTER_COMMAND_NAME:-bu}
+
 __bu_sort_keys()
 {
     tr ' ' '\n' | sort
 }
 
+# ```
+# *Description*:
+# Gets the properties of a bu sub-command
+#
+# *Params*
+# - `$1`: bu sub-command
+#
+# *Returns*
+# - `$BU_RET`: Properties of the command. One of `function`, `source`, `execute`, or `no-default-found`.
+# ```
 __bu_master_command_properties()
 {
     local bu_command=$1
@@ -577,11 +812,18 @@ __bu_master_command_properties()
     BU_RET=$properties
 }
 
+# ```
+# *Description*:
+# Displays help information for the master command
+#
+# *Params*: None
+#
+# *Returns*: None
+# ```
 __bu_help()
 {
-    local master_command=$1
-    echo "${BU_TPUT_BOLD}${BU_TPUT_DARK_BLUE}Help for ${master_command}${BU_TPUT_RESET}"
-    echo "${master_command} is the Bash CLI implemented by shell-utils"
+    echo "${BU_TPUT_BOLD}${BU_TPUT_DARK_BLUE}Help for ${BU_MASTER_COMMAND_NAME}${BU_TPUT_RESET}"
+    echo "${BU_MASTER_COMMAND_NAME} is the Bash CLI implemented by shell-utils"
 
     local key
     local value
@@ -648,7 +890,18 @@ __bu_help()
     done
 } >&2
 
+# ```
+# *Description*:
+# The top-level CLI command `bu`
+#
+# *Params*:
+# - `$1`: Sub-command
+# - `...`: All parameters are passed to the sub-command
+#
+# *Returns*:
+# - Exit code of the sub-command
+# ```
 bu()
 {
-    builtin source bu_impl.sh bu "$@"
+    builtin source bu_impl.sh "$@"
 }

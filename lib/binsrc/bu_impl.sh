@@ -5,19 +5,17 @@
 source "$BU_NULL"
 __bu_impl()
 {
-    local master_command=$1
-    shift
     if ((!$#))
     then
         bu_log_warn "No arguments specified, printing help"
-        __bu_help bu
+        __bu_help
         return
     fi
 
     if (( ${#BASH_SOURCE[@]} == 1 ))
     then
         {
-            printf "%q " "$master_command" "$@"
+            printf "%q " "$BU_MASTER_COMMAND_NAME" "$@"
             echo
         } >> "$BU_TMP_DIR"/bu_history.sh
         mapfile -t BU_RET <"$BU_TMP_DIR"/bu_history.sh
@@ -49,7 +47,7 @@ __bu_impl()
         ;;
     *)
         bu_log_err "Invalid command[$bu_command] properties[$properties]"
-        __bu_help "$master_command"
+        __bu_help
         return 1
         ;;
     esac
