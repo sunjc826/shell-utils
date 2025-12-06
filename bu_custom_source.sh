@@ -21,7 +21,7 @@ BU_LIB_CORE_DIR=$BU_DIR/lib/core
 
 BU_LIB_TEMPLATE_DIR=$BU_DIR/lib/templates
 
-BU_BUILTIN_COMMANDS_DIR=$BU_DIR/lib/subcommands
+BU_BUILTIN_COMMANDS_DIR=$BU_DIR/lib/commands
 
 
 # ```

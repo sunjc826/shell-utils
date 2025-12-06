@@ -10,6 +10,7 @@ __bu_init_env()
 {
     bu_env_append_path "$BU_LIB_BIN_DIR"
     bu_env_append_path "$BU_LIB_BINSRC_DIR"
+    bu_env_append_path "$BU_BUILTIN_COMMANDS_DIR"
 }
 
 __bu_init_keybindings()
