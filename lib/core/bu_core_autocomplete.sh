@@ -531,7 +531,7 @@ __bu_autocomplete_completion_func_master_impl()
 # *Returns*:
 # - `${COMPREPLY[@]}`: List of autocompletions
 # ```
-bu_autocomplete_completion_func_master()
+__bu_autocomplete_completion_func_master()
 {
     local completion_command=$1
     local cur_word=$2
@@ -584,7 +584,7 @@ bu_autocomplete_completion_func_master()
 # *Returns*:
 # - `${COMPREPLY[@]}`: List of autocompletions
 # ```
-bu_autocomplete_completion_func_cached()
+__bu_autocomplete_completion_func_cached()
 {
     local completion_command=$1
     local cur_word=$2
@@ -613,7 +613,7 @@ bu_autocomplete_completion_func_cached()
 #   - 1 or any other code: Autocomplete failed
 # - `${COMPREPLY[@]}`: List of autocompletions
 # ```
-bu_autocomplete_completion_func_default()
+__bu_autocomplete_completion_func_default()
 {
     local completion_command=$1
     # local cur_word=$2 # unused
@@ -623,7 +623,7 @@ bu_autocomplete_completion_func_default()
     local key=$BU_RET
     if [[ -e "$BU_NAMED_CACHE_DIR"/"$key" ]]
     then
-        complete -F bu_autocomplete_cached -- "$completion_command"
+        complete -F __bu_autocomplete_completion_func_cached -- "$completion_command"
     elif bu_symbol_is_function _completion_loader
     then
         complete -F _completion_loader -- "$completion_command"
@@ -647,6 +647,7 @@ __bu_terminal_get_pos()
     stty "$oldstty" </dev/tty
     BU_RET=$((row-1))
 }
+
 __bu_fzf_current_pos()
 {
     local lines=$(tput lines)

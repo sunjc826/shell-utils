@@ -1851,7 +1851,7 @@ bu_run()
             } >> "$cmd_log_file"
         fi
 
-        if bu_tmux_is_active
+        if bu_env_is_in_tmux
         then
             tmux rename-window -t "$TMUX_PANE" "${tmux_name:-$command}"
         fi
@@ -1865,7 +1865,7 @@ bu_run()
 }
 
 # MARK: tmux
-bu_tmux_is_active()
+bu_env_is_in_tmux()
 {
     [[ -n "$TMUX" && ("$TERM" == screen* || "$TERM" == tmux*) ]]
 }
@@ -2097,17 +2097,3 @@ __bu_bind_toggle_gdb()
     esac
     READLINE_LINE=${words[*]}
 }
-
-declare -A -g BU_KEY_BINDINGS=(
-    ['\ee']=__bu_bind_edit
-    ['\eg']=__bu_bind_toggle_gdb
-    ['\ea']=__bu_bind_fzf_history
-    ['\ex']=__bu_bind_fzf_autocomplete
-)
-bu_preinit_register_user_defined_key_binding()
-{
-    local key=$1
-    local binding=$2
-    BU_KEY_BINDINGS[$key]=$binding
-}
-

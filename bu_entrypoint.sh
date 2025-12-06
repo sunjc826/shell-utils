@@ -11,9 +11,9 @@ source ./config/bu_config_dynamic.sh
 
 bu_source_user_defined_configs
 
-
 source ./lib/core/bu_core_base.sh --__bu-once
 source ./lib/core/bu_core_autocomplete.sh --__bu-once
+source ./lib/core/bu_core_preinit.sh --__bu-once
 
 bu_source_user_defined_pre_init_callbacks
 

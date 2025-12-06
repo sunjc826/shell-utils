@@ -1,5 +1,9 @@
 # shellcheck source=./bu_core_base.sh
 source "$BU_NULL"
+# shellcheck source=./bu_core_autocomplete.sh
+source "$BU_NULL"
+# shellcheck source=./bu_core_preinit.sh
+source "$BU_NULL"
 
 # MARK: Initialization logic
 __bu_init_env()
@@ -15,7 +19,7 @@ __bu_init_keybindings()
         local shortcut_key
         for shortcut_key in "${!BU_KEY_BINDINGS[@]}"
         do
-            bu_log_debug "Mapping $shortcut_key to ${BU_KEY_BINDINGS[$shortcut_key]}"
+            bu_log_debug "Mapping shortcut_key[$shortcut_key] to command[${BU_KEY_BINDINGS[$shortcut_key]}]"
             bind -x '"'"$shortcut_key"'": '"${BU_KEY_BINDINGS[$shortcut_key]}"
         done
     fi
@@ -77,7 +81,7 @@ __bu_init_vscode()
                 export EDITOR=vim
                 bu_log_warn code server is not running
             else
-                export VISUAL=$BU_LIB_BIN_DIR/code_wait.sh
+                export VISUAL=$BU_LIB_BIN_DIR/bu_code_wait.sh
                 export EDITOR=$VISUAL
                 bu_log_info code cli initialized
             fi
@@ -89,12 +93,26 @@ __bu_init_vscode()
 
 __bu_init_tmux()
 {
-    :
+    if ! bu_env_is_in_tmux
+    then
+        return
+    fi
+
+    bu_log_debug Setting window status
+    tmux set-option window-status-format '#I:#{?@bu_use_window_name,#{window_name},#{b:pane_current_path}}#F'
+    tmux set-option window-status-current-format '#I:#{?@bu_use_window_name,#{window_name},#{b:pane_current_path}}#F'
 }
 
 __bu_init_autocomplete()
 {
-    :
+    local completion_command
+    for completion_command in "${!BU_AUTOCOMPLETE_COMPLETION_FUNCS[@]}"
+    do
+        local completion_func=${BU_AUTOCOMPLETE_COMPLETION_FUNCS[$completion_command]}
+        bu_log_debug "Completing command[$completion_command] with completion_func[$completion_func]"
+        complete -F "$completion_func" "$completion_command"
+    done
+    complete -F bu_autocomplete_completion_func_default -D
 }
 
 bu_init()
