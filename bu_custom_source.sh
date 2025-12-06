@@ -219,6 +219,11 @@ bu_def_source()
             return 0
         fi
 
+        if "$is_once"
+        then
+            echo "sourcing(--__bu-once) $source_filepath" >&2
+        fi
+
         # shellcheck disable=SC2317
         BU_SOURCE_ONCE_CACHE[$basename]=true
 

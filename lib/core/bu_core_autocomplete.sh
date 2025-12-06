@@ -499,7 +499,7 @@ __bu_autocomplete_completion_func_master_helper()
             terminator=${args[i]#--}--
             for (( offset = 1; i + offset < "${#args[@]}"; offset++ ))
             do
-                if [[ "${offset[i + offset]}" = "$terminator" ]]
+                if [[ "${args[i + offset]}" = "$terminator" ]]
                 then
                     break
                 fi
@@ -575,6 +575,9 @@ __bu_autocomplete_completion_func_master_impl()
     local comp_cword=$4
     local tail=$5
     shift 5
+    # bu_log_tty
+    # bu_log_tty "__bu_autocomplete_completion_func_master_impl '$completion_command_path' '$cur_word' '$prev_word' '$comp_cword' '$tail' $*"
+    # bu_log_tty
     local comp_words=("$@")
     comp_words[comp_cword]=${comp_words[comp_cword]%$tail}
     local processed_comp_words=(
@@ -583,16 +586,18 @@ __bu_autocomplete_completion_func_master_impl()
     )
     COMPREPLY=()
     local lazy_autocomplete_args=()
+    # bu_log_tty reached0
     if builtin source "${processed_comp_words[@]}" &>/dev/null
     then
         lazy_autocomplete_args=("${BU_RET[@]}")
     fi
-
+    # bu_log_tty reached3
     # Scripts might set -e, and because we are sourcing them, we unset it
     set +ex
-    
+
     __bu_autocomplete_completion_func_master_helper "$completion_command_path" "$cur_word" "$prev_word" "${lazy_autocomplete_args[@]}"
     local exit_code=$?
+
     bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
     if ((exit_code == "$BU_AUTOCOMPLETE_EXIT_CODE_RETRY"))
     then

@@ -1,14 +1,29 @@
 #!/usr/bin/env bash
 function __bu_make_script_main()
 {
-# set -e
+set -e
+# Considering how slow WSL1 is, let's optimize a bit here too
 local script_name
-script_name=$(basename -- "$BASH_SOURCE")
 local script_dir
-script_dir=$(realpath -- "$(dirname -- "$BASH_SOURCE")")
+case "$BASH_SOURCE" in
+*/*)
+    script_name=${BASH_SOURCE##*/}
+    script_dir=${BASH_SOURCE%/*}
+    ;;
+*)
+    script_name=$BASH_SOURCE
+    script_dir=.
+    ;;
+esac
 pushd "$script_dir" &>/dev/null
+script_dir=$PWD
+
+# This seems to be the most important optimization for WSL1, autocomplete is way more responsive
+if [[ -z "$COMP_CWORD" ]]
+then
 source ../../bu_entrypoint.sh
-# bu_exit_handler_setup
+fi
+bu_exit_handler_setup
 bu_scope_push_function
 bu_scope_add_cleanup bu_popd_silent
 bu_run_log_command "$@"
@@ -22,6 +37,7 @@ local error_msg=
 local options_finished=false
 local autocompletion=()
 local shift_by=
+# bu_log_tty reached1
 while (($#))
 do
     bu_parse_multiselect
@@ -58,6 +74,7 @@ done
 local remaining_options=("$@")
 if bu_env_is_in_autocomplete
 then
+    # bu_log_tty reached2
     bu_autocomplete
     return 0
 fi

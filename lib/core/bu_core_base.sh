@@ -62,8 +62,11 @@ bu_mkdir \
 # BU_PROC_FIFO is allows reading from stdout of a command without using a subshell
 # Iirc, bash 5 will support subshell-less process substitution, but until then, this is a workaround
 BU_PROC_FIFO=$BU_PROC_DIR/scratch.fifo
+BU_PROC_FILE=$BU_PROC_DIR/scratch.txt
 # Use an fd to further reduce overhead
+# TODO: Think about fds leaking if we re-source the file, e.g. when overridding source-once
 BU_PROC_FIFO_FD=
+BU_PROC_FILE_FD=
 # Probably have some kind of cleanup policy
 if [[ ! -e "$BU_PROC_DIR" ]]
 then
@@ -72,8 +75,9 @@ fi
 if [[ ! -e "$BU_PROC_FIFO" ]]
 then
     mkfifo "$BU_PROC_FIFO"
-    exec {BU_PROC_FIFO_FD}<>"$BU_PROC_FIFO"
 fi
+exec {BU_PROC_FIFO_FD}<>"$BU_PROC_FIFO"
+exec {BU_PROC_FILE_FD}<>"$BU_PROC_FILE"
 
 # MARK: Conversion utilities
 
@@ -130,11 +134,10 @@ bu_ret_to_stdout()
     esac
 }
 
-
 bu_stdout_to_ret()
 {
     local mode=str
-    local is_proc=false
+    local is_proc=
     local outparam_name=BU_RET
     local shift_by
     while (($#))
@@ -146,6 +149,9 @@ bu_stdout_to_ret()
             ;;
         --proc)
             is_proc=true
+            ;;
+        --no-proc)
+            is_proc=false
             ;;
         -o|--outparam)
             outparam_name=$2
@@ -162,6 +168,16 @@ bu_stdout_to_ret()
         shift "$shift_by"
     done
 
+    if [[ -z "$is_proc" ]]
+    then
+        if "$BU_ENV_IS_WSL"
+        then
+            is_proc=false
+        else
+            is_proc=true
+        fi
+    fi
+
     local -n outparam=$outparam_name
     case "$mode" in
     str)
@@ -169,7 +185,7 @@ bu_stdout_to_ret()
         then
             outparam=
             "$@" >&"$BU_PROC_FIFO_FD" || return 1
-            read -r "$outparam_name" <&"$BU_PROC_FIFO_FD"  
+            read -r "${outparam_name?}" <&"$BU_PROC_FIFO_FD"  
         else
             outparam=$("$@")
         fi
@@ -181,7 +197,7 @@ bu_stdout_to_ret()
         then
             outparam=()
             "$@" >&"$BU_PROC_FIFO_FD" || return 1
-            read -r -a "$outparam_name" <&"$BU_PROC_FIFO_FD"
+            read -r -a "${outparam_name?}" <&"$BU_PROC_FIFO_FD"
         else
             outparam=($("$@"))
         fi
@@ -190,8 +206,8 @@ bu_stdout_to_ret()
         if "$is_proc"
         then
             outparam=()
-            "$@" >&"$BU_PROC_FIFO_FD" || return 1
-            mapfile -t "$outparam_name" <&"$BU_PROC_FIFO_FD"
+            "$@" >&"$BU_PROC_FILE_FD" || return 1
+            mapfile -t "$outparam_name" <&"$BU_PROC_FILE_FD"
         else
             mapfile -t "$outparam_name" < <("$@")
         fi
@@ -438,8 +454,16 @@ __bu_log()
     local log_lvl=$2
     local log_prefix=$3
     shift 3
+    
+    local log_lvl_setting
+    if bu_env_is_in_autocomplete
+    then
+        log_lvl_setting=$BU_AUTOCOMPLETE_LOG_LVL
+    else
+        log_lvl_setting=$BU_LOG_LVL
+    fi
 
-    if (( log_lvl < BU_LOG_LVL ))
+    if (( log_lvl < log_lvl_setting ))
     then
         return 0
     fi
@@ -456,9 +480,15 @@ __bu_log()
     local basename=$BU_RET
     # 7 because SUCCESS is the longest log prefix
     printf -v log_prefix '%-7s' "$log_prefix"
+
     # echo ${FUNCNAME[@]}
     # echo ${BASH_LINENO[@]}
-    printf "${color}${log_prefix}${basename}:${BASH_LINENO[log_idx+1]}[${FUNCNAME[log_idx+2]}] %s${BU_TPUT_RESET}\n" "$*" >&2
+    if bu_env_is_in_autocomplete
+    then
+        printf "${color}${log_prefix}${basename}:${BASH_LINENO[log_idx+1]}[${FUNCNAME[log_idx+2]}] %s${BU_TPUT_RESET}\n" "$*" >/dev/tty
+    else
+        printf "${color}${log_prefix}${basename}:${BASH_LINENO[log_idx+1]}[${FUNCNAME[log_idx+2]}] %s${BU_TPUT_RESET}\n" "$*" >&2
+    fi
 }
 
 # ```
@@ -1002,7 +1032,7 @@ bu_scope_push()
 # ```
 bu_scope_push_function()
 {
-    BU_SCOPE_STACK+=("-${#BU_SCOPE_STACK[@]}")
+    BU_SCOPE_STACK+=("_${#BU_SCOPE_STACK[@]}")
 }
 
 # ```
@@ -1049,7 +1079,7 @@ bu_scope_add_cleanup()
         return 1
     fi
 
-    bu_scope_handle_add_cleanup "${BU_SCOPE_STACK[-1]}"
+    bu_scope_handle_add_cleanup "${BU_SCOPE_STACK[-1]}" "$@"
 }
 
 # ```
@@ -1128,7 +1158,7 @@ bu_scope_pop_function()
     local i
     for (( i=${#BU_SCOPE_STACK[@]}-1; i >= 0; i-- ))
     do
-        if (( "${BU_SCOPE_STACK[-1]}" < 0 ))
+        if [[ "${BU_SCOPE_STACK[-1]:0:1}" == _ ]]
         then
             break
         fi
@@ -1145,12 +1175,13 @@ bu_scope_pop_function()
     for (( i=${#BU_SCOPE_STACK[@]}-1; i >= "$target"; i-- ))
     do
         local -n deferred="BU_SCOPE_CLEANUPS_${BU_SCOPE_STACK[$i]}"
-        for (( j=${#deferred}-1; j >= 0; j-- ))
+        bu_log_debug "Cleaning up ${BU_SCOPE_STACK[-1]}"
+        for (( j=${#deferred[@]}-1; j >= 0; j-- ))
         do
-            bu_log_debug "Cleaning up ${BU_SCOPE_STACK[-1]}: ${deferred[-1]}"
-            if ! "${deferred[$j]}"
+            bu_log_debug "Cleaning up ${BU_SCOPE_STACK[-1]}: \"${deferred[j]}\""
+            if ! ${deferred[j]}
             then
-                bu_log_err "Cleanup failed: ${deferred[-1]}"
+                bu_log_err "Cleanup failed: ${deferred[j]}"
                 ret=1
             fi
         done
@@ -1311,7 +1342,7 @@ __bu_exit_handler()
                 printf "    %s: %s%s%s at %s%s:%s%s\n" \
                     "$i" \
                     "$BU_TPUT_BOLD" "${FUNCNAME[i+1]}" "$BU_TPUT_RESET" \
-                    "$BU_TPUT_UNDERLINE" "$(basename -- "${BASH_SOURCE[i+1]}")" "${BASH_LINENO[i]}" "$BU_TPUT_NO_UNDERLINE"
+                                        "$BU_TPUT_UNDERLINE" "$(basename -- "${BASH_SOURCE[i+1]}")" "${BASH_LINENO[i]}" "$BU_TPUT_NO_UNDERLINE"
             fi
         done
 
@@ -1331,6 +1362,7 @@ __bu_exit_handler()
         bu_log_err Something failed during cleanup
     fi
 
+    sleep 120
     exit "$exit_code"
 }
 
@@ -2572,6 +2604,11 @@ bu_print_var()
     do
         printf "  [%s]=%s\n" "$key" "${__bu_print_var_name[$key]}"
     done
+}
+
+bu_scope_print()
+{
+    bu_print_var BU_SCOPE_STACK
 }
 
 # MARK: Code gen
