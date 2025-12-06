@@ -101,10 +101,17 @@ __bu_cli_help()
     echo "The following commands using ${BU_TPUT_UNDERLINE}the current shell context${BU_TPUT_RESET} are available"
     echo
     
+    local opt_err=
     for key in $(__bu_cli_sort_keys <<<"${!source_scripts[*]}")
     do
         value=${source_scripts[$key]}
-        printf "    ${BU_TPUT_BOLD}%-30s${BU_TPUT_RESET}    %s\n" "$key" "$value"
+        if grep -q 'set -e' "$value"
+        then
+            opt_err="${BU_TPUT_YELLOW}WARNING: set -e found${BU_TPUT_RESET}"
+        else
+            opt_err=
+        fi
+        printf "    ${BU_TPUT_BOLD}%-30s${BU_TPUT_RESET}    %s %s\n" "$key" "$value" "$opt_err"
     done
 
     echo

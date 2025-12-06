@@ -491,6 +491,12 @@ __bu_log()
     fi
 }
 
+bu_assert_err()
+{
+    __bu_log "$BU_TPUT_RED" "$BU_LOG_LVL_ERR" ERR "$*"
+    false
+}
+
 # ```
 # *Description*:
 # Log an error message
@@ -1087,6 +1093,7 @@ bu_scope_add_cleanup()
 # Pop the current scope from the scope stack and execute all registered cleanup commands
 #
 # *Params*: None
+#
 # *Returns*: None
 #
 # *Examples*:
@@ -1108,9 +1115,10 @@ bu_scope_pop()
     local -n deferred=BU_SCOPE_CLEANUPS_${BU_SCOPE_STACK[-1]}
     local i
     local ret=0
-    for (( i=${#deferred}-1; i >= 0; i-- ))
+    bu_log_debug "Cleaning up ${BU_SCOPE_STACK[-1]}"
+    for (( i=${#deferred[@]}-1; i >= 0; i-- ))
     do
-        bu_log_debug "Cleaning up ${BU_SCOPE_STACK[-1]}: \"${deferred[i]}\""
+        bu_log_debug "Cleaning up ${BU_SCOPE_STACK[-1]}[$i]: \"${deferred[i]}\""
         if ! ${deferred[i]}
         then
             bu_log_err "Cleanup failed: \"${deferred[i]}\""
@@ -1174,11 +1182,11 @@ bu_scope_pop_function()
     local ret=0
     for (( i=${#BU_SCOPE_STACK[@]}-1; i >= "$target"; i-- ))
     do
-        local -n deferred="BU_SCOPE_CLEANUPS_${BU_SCOPE_STACK[$i]}"
+        local -n deferred=BU_SCOPE_CLEANUPS_${BU_SCOPE_STACK[$i]}
         bu_log_debug "Cleaning up ${BU_SCOPE_STACK[-1]}"
         for (( j=${#deferred[@]}-1; j >= 0; j-- ))
         do
-            bu_log_debug "Cleaning up ${BU_SCOPE_STACK[-1]}: \"${deferred[j]}\""
+            bu_log_debug "Cleaning up ${BU_SCOPE_STACK[-1]}[$j]: \"${deferred[j]}\""
             if ! ${deferred[j]}
             then
                 bu_log_err "Cleanup failed: \"${deferred[j]}\""
@@ -1192,7 +1200,7 @@ bu_scope_pop_function()
 
 bu_scope_pop_all()
 {
-    local ret=1
+    local ret=0
     for (( i=${#BU_SCOPE_STACK[@]}; i > 0; i-- ))
     do
         if ! bu_scope_pop
@@ -1362,8 +1370,8 @@ __bu_exit_handler()
         bu_log_err Something failed during cleanup
     fi
 
-    sleep 120
-    exit "$exit_code"
+    # sleep 120
+    return "$exit_code"
 }
 
 bu_exit_handler_setup_no_e()
@@ -1510,7 +1518,7 @@ bu_sync_cycle_file()
     local filepath=$1
     local should_lock=$2
     local num_lines=${3:-"+1"}
-    local unique=4
+    local unique=$4
 
     if [[ ! -e "$filepath" ]]
     then
