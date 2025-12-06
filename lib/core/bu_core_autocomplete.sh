@@ -89,7 +89,7 @@ bu_autocomplete_parse_case_block_options()
     { line = $0 }
 
     ! is_in_option && ( \
-        ( /^[[:space:]]*'"$__BU_AUTOCOMPLETE_OPTION_REGEX"'\)/ && gsub( /\).*/, "", line ) \
+        ( /^[[:space:]]*'"$__BU_AUTOCOMPLETE_OPTION_REGEX"'\)/ && gsub( /\).*/, "", line ) ) \
         || \
         ( /^[[:space:]]*'"$__BU_AUTOCOMPLETE_OPTION_REGEX"'\|\\/ && gsub( /\|\\/, "", line ) ) \
     ) {
@@ -590,12 +590,10 @@ __bu_autocomplete_completion_func_master_impl()
 
     # Scripts might set -e, and because we are sourcing them, we unset it
     set +ex
-
+    
     __bu_autocomplete_completion_func_master_helper "$completion_command_path" "$cur_word" "$prev_word" "${lazy_autocomplete_args[@]}"
     local exit_code=$?
-
     bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
-
     if ((exit_code == "$BU_AUTOCOMPLETE_EXIT_CODE_RETRY"))
     then
         compopt -o nospace
@@ -620,7 +618,7 @@ __bu_autocomplete_completion_func_master_impl()
 # *Returns*:
 # - `${COMPREPLY[@]}`: List of autocompletions
 # ```
-__bu_autocomplete_completion_func_master()
+__bu_autocomplete_completion_func_cli()
 {
     local completion_command=$1
     local cur_word=$2
@@ -629,11 +627,11 @@ __bu_autocomplete_completion_func_master()
     bu);;
     *) return 1;;
     esac
-
+    
     COMPREPLY=()
     if ((COMP_CWORD == 1))
     then
-        bu_compgen -W "${BU_COMMANDS[*]}" -- "$cur_word"
+        bu_compgen -W "${!BU_COMMANDS[*]}" -- "$cur_word"
         return 0
     fi
 
@@ -854,4 +852,38 @@ __bu_bind_fzf_history()
         READLINE_LINE=$history_result
         READLINE_POINT=${#READLINE_LINE}
     fi
+}
+
+bu_autocomplete()
+{
+    BU_RET=("${autocompletion[@]}")
+    case "$1" in
+    --no-pop)
+        ;;
+    --no-pop-fn)
+        bu_scope_pop
+        ;;
+    '')
+        bu_scope_pop_function
+        ;;
+    *)
+        bu_log_unrecognized_option "$1"
+        ;;
+    esac
+}
+
+bu_autocomplete_remaining()
+{
+    local arg1=
+    case "$1" in
+    --no-pop|--no-pop-fn)
+        arg1=$1
+        ;;
+    esac
+
+    if "$options_finished" && ((${#remaining_options[@]}))
+    then
+        autocompletion=("$@")
+    fi
+    bu_autocomplete "$arg1"
 }

@@ -23,7 +23,7 @@ bu_preinit_register_user_defined_key_binding()
 }
 
 declare -A -g BU_AUTOCOMPLETE_COMPLETION_FUNCS=(
-    [$BU_CLI_COMMAND_NAME]="__bu_autocomplete_completion_func_master"
+    [$BU_CLI_COMMAND_NAME]="__bu_autocomplete_completion_func_cli"
 )
 
 bu_preinit_register_user_defined_completion_func()

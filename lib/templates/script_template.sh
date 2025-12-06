@@ -46,7 +46,7 @@ do
     shift "$shift_by"
 done
 local remaining_options=("$@")
-if bu_is_autocomplete
+if bu_env_is_in_autocomplete
 then
     bu_autocomplete
     return 0

@@ -128,6 +128,73 @@ __bu_cli_help()
     done
 } >&2
 
+bu_autohelp()
+{
+    set +e
+    local header=
+    local example_purposes=()
+    local example_command_lines=()
+    local shift_by
+    while (($#))
+    do
+        shift_by=1
+        case "$1" in
+        --header)
+            header=$2
+            shift_by=2
+            ;;
+        --example)
+            local purpose=$2
+            local command_line=$3
+            example_purposes+=("$purpose")
+            example_command_lines+=("$command_line")
+            shift_by=3
+            ;;
+        *)
+            bu_log_unrecognized_option "$1"
+            ;;
+        esac
+        if (( $# < shift_by ))
+        then
+            bu_log_err "Expected $((shift_by-1)) arguments for option $1"
+        fi
+        shift "$shift_by"
+    done
+    local script_path=${BASH_SOURCE[1]}
+    bu_basename "$script_path"
+    local script_name=$BU_RET
+
+    local exit_code=0
+    if [[ -n "$error_msg" ]]
+    then
+        bu_log_err "$error_msg"
+        exit_code=1
+    fi
+
+    printf '%s\n' "Help for ${BU_TPUT_BOLD}${script_path}${BU_TPUT_RESET}"
+    if [[ -n "$header" ]]
+    then
+        printf '\n%s\n\n' "${BU_TPUT_BOLD}${BU_TPUT_DARK_BLUE}DESCRIPTION${BU_TPUT_RESET}"
+        printf '%s\n' "$(bu_gen_remove_empty_lines <<<"$header" | bu_gen_trim)"
+    fi
+
+    # TODO: Smart autohelp
+
+    if ((${#example_purposes[@]}))
+    then
+        printf "\n%s\n\n" "${BU_TPUT_BOLD}${BU_TPUT_DARK_BLUE}EXAMPLES${BU_TPUT_RESET}"
+        local i
+        for i in "${!example_purposes[@]}"
+        do
+            printf "%s:\n" "- ${example_purposes[i]}"
+            printf "\t%s %s\n\n" "${BU_TPUT_BOLD}${script_name}" "${example_command_lines[i]}${BU_TPUT_RESET}"
+        done
+    fi
+
+    bu_scope_pop_function 2>/dev/null || true
+    return "$exit_code"
+}
+
 # ```
 # *Description*:
 # The top-level CLI command `$BU_CLI_COMMAND_NAME` (default `bu`)

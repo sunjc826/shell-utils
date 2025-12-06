@@ -521,6 +521,11 @@ bu_log_success()
     __bu_log "$BU_TPUT_GREEN" "$BU_LOG_LVL_INFO" SUCCESS "$*"
 }
 
+bu_log_tty()
+{
+    printf '%s\n' "$*" > /dev/tty
+}
+
 # ```
 # *Description*:
 # Internal command logging function
@@ -900,10 +905,10 @@ bu_toupper()
 #
 # *Examples*:
 # ```bash
-# echo '  abc ' | bu_trim # stdout=abc
+# echo '  abc ' | bu_gen_trim # stdout=abc
 # ```
 # ```
-bu_trim()
+bu_gen_trim()
 {
     awk '{$1=$1};1'
 }
@@ -922,16 +927,16 @@ bu_trim()
 # ```bash
 # echo '
 # abc
-# ' | bu_trim_empty_lines # stdout='abc'
+# ' | bu_gen_trim_empty_lines # stdout='abc'
 # ```
 #
 # ```bash
-# bu_trim_empty_lines '
+# bu_gen_trim_empty_lines '
 # abc
 # ' # stdout='abc'
 # ```
 # ```
-bu_trim_empty_lines()
+bu_gen_trim_empty_lines()
 {
     if [[ -n "$1" ]]
     then
@@ -939,6 +944,11 @@ bu_trim_empty_lines()
     else
         sed '/^ *$/d'
     fi
+}
+
+bu_gen_remove_empty_lines()
+{
+    sed -r -e '/^$/d'
 }
 
 # MARK: RAII Scopes
@@ -1828,6 +1838,11 @@ bu_env_rename_func()
 bu_env_is_in_tmux()
 {
     [[ -n "$TMUX" && ("$TERM" == screen* || "$TERM" == tmux*) ]]
+}
+
+bu_env_is_in_autocomplete()
+{
+    [[ -n "$COMP_CWORD" ]]
 }
 
 # MARK: Run utils
