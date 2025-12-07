@@ -231,13 +231,22 @@ bu_def_source()
 
         # Our source implementations allow functions too
         # Functions are in fact more similar to sourcing scripts than invoking a script in a new shell
-        case "$(type -t "$source_filepath" 2>/dev/null)" in
-        function)
-            "$source_filepath" "$@"
-            ;;
-        *)
+        # Slight optimization: If source_filepath ends in .sh, then we assume it is a script instead of a function
+        case "$source_filepath" in
+        *.sh)
             # shellcheck disable=SC2317
             builtin source "$source_filepath" "$@"
+            ;;
+        *)
+            case "$(type -t "$source_filepath" 2>/dev/null)" in
+            function)
+                "$source_filepath" "$@"
+                ;;
+            *)
+                # shellcheck disable=SC2317
+                builtin source "$source_filepath" "$@"
+                ;;
+            esac
             ;;
         esac
     }
