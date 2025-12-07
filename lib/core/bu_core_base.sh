@@ -1666,7 +1666,7 @@ bu_sync_release_file()
 # ```
 bu_sync_release_fd()
 {
-    local fd=1
+    local fd=$1
     bu_log_debug "Unlocking fd[$fd]"
     flock --unlock "$fd"
     bu_log_debug "Closing fd[$fd]"
