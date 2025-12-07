@@ -259,7 +259,8 @@ BU_SOURCE_IS_CUSTOM=false
 # ```
 bu_def_source()
 {
-    # Redefine source for the duration of the function
+    # Set BU_SOURCE_IS_CUSTOM to indicate that we have defined a custom source function
+    # Avoids the need to check whether "$(type -t source)" is "builtin" or "function"
     BU_SOURCE_IS_CUSTOM=true
     source()
     {

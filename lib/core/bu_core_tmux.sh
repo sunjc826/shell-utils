@@ -27,6 +27,15 @@ __bu_spawn_tmux_resolve_split_mode()
     BU_RET=(tmux "${tmux_args[@]}" bash --init-file)
 }
 
+# ```
+# *Description*:
+# Stops the commands running in the given tmux panes
+#
+# *Params*:
+# - `...`: Tmux pane ids
+#
+# *Returns*: None
+# ```
 bu_spawn_tmux_stop_commands()
 {
     local pane
@@ -36,6 +45,18 @@ bu_spawn_tmux_stop_commands()
     done
 }
 
+# ```
+# *Description*:
+# Waits for the commands associated with the ret file fds to finish, and checks their exit codes
+#
+# *Params*:
+# - `...`: ret file fds
+#
+# *Returns*:
+# - Exit code:
+#   - 0: all commands returned 0
+#   - Non-zero: The exit code of the last command that returned a non-zero exit code
+# ```
 bu_spawn_tmux_join_commands()
 {
     bu_log_info "Joining fds[$*]"
@@ -68,6 +89,19 @@ bu_spawn_tmux_join_commands()
     return "$exit_code"
 }
 
+# ```
+# *Description*:
+# Combines `bu_spawn_tmux_stop_commands` and `bu_spawn_tmux_join_commands`. Stops the given panes, and joins the ret files.
+#
+# *Params*:
+# - `$1`, `$3`, all odd indices: Pane ids
+# - `$2`, `$4`, all even indices: Ret file fds
+#
+# *Returns*:
+# - Exit code:
+#   - 0: all commands returned 0
+#   - Non-zero: The exit code of the last command that returned a non-zero exit code
+# ```
 bu_spawn_tmux_stop_join_commands()
 {
     if (($# / 2 * 2 != $#))

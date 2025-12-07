@@ -45,7 +45,7 @@ do
         shift
         break
         ;;
-    --help)
+    -h|--help)
         # Print help
         is_help=true
         ;;

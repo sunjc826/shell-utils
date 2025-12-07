@@ -62,7 +62,7 @@ do
         # This script is not meant to be executed in a new shell, but rather should be sourced
         is_source_only=true
         ;;
-    --help)
+    -h|--help)
         # Print help
         is_help=true
         ;;
