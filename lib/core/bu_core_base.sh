@@ -1784,7 +1784,7 @@ bu_sync_cycle_numbered_files()
     fi
 
     local i
-    for (( i=$cycle_length; i > 0; i-- ))
+    for (( i = cycle_length; i > 0; i-- ))
     do
         if [[ -e "$file_base.$((i-1)).$file_ext" ]]
         then

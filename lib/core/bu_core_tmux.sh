@@ -1,20 +1,6 @@
 # shellcheck source=./bu_core_base.sh
 source "$BU_NULL"
 
-__bu_spawn_tmux_header()
-{
-    local command=$1
-    # Serialize the environment
-    awk 'BEGIN{for(v in ENVIRON) { if(v !~ /^(TMUX|TERM|BASH)(_.*|$)/) printf "export %s=\"%s\"\n", v, ENVIRON[v] }}'
-    if [[ -n "$command" ]] && bu_symbol_is_function "$command"
-    then
-        printf "%s\n" "$(declare -f "$command")"
-    fi
-    echo . /etc/profile
-    echo . "$HOME"/.bashrc
-    echo 'source '"$BU_DIR"/bu_entrypoint.sh
-}
-
 __bu_spawn_tmux_resolve_split_mode()
 {
     local split_mode=$1
@@ -105,11 +91,21 @@ bu_spawn_tmux_stop_join_commands()
 BU_TMUX_PANES_FILE=$BU_PROC_TMP_DIR/tmux_panes.txt
 bu_spawn_init()
 {
+    if ! bu_env_is_in_tmux
+    then
+        bu_log_err 'Not in tmux'
+        return 1
+    fi
     : >"$BU_TMUX_PANES_FILE"
 }
 
 bu_spawn()
 {
+    if ! bu_env_is_in_tmux
+    then
+        bu_log_err 'Not in tmux'
+        return 1
+    fi
     local split_mode=none
     local is_split_opposite=false
     local is_joinable=false
@@ -117,6 +113,7 @@ bu_spawn()
     local is_delete_pane=false # TODO
     local is_wait=false
     local is_function=
+    local is_source_bashrc=true
     local shift_by
     while (($#))
     do
@@ -154,6 +151,9 @@ bu_spawn()
             ;;
         --function)
             is_function=true
+            ;;
+        --no-bashrc)
+            is_source_bashrc=false
             ;;
         --)
             shift
@@ -216,11 +216,29 @@ bu_spawn()
     then
         bu_basename "$tmp_file"
         random_part=${BU_RET#tmux.}
-    fi
+    fi 
 
     {
         echo 'rm '"$tmp_file"
-        __bu_spawn_tmux_header "$command"
+        # Serialize the environment
+        awk '
+        BEGIN {
+            for( v in ENVIRON ) { 
+                if( v !~ /^(TMUX|TERM|BASH)(_.*|$)/ ) 
+                    printf "export %s=\"%s\"\n", v, ENVIRON[v] 
+            }
+        }
+        '
+        if [[ -n "$command" ]] && bu_symbol_is_function "$command"
+        then
+            printf "%s\n" "$(declare -f "$command")"
+        fi
+        echo . /etc/profile
+        if "$is_source_bashrc"
+        then
+        echo . "$HOME"/.bashrc
+        fi
+        echo 'source '"$BU_DIR"/bu_entrypoint.sh
         if "$is_joinable"
         then
         # echo 1 first to account for possible Ctrl-C
@@ -232,7 +250,7 @@ bu_spawn()
         # shellcheck disable=SC2016
         echo 'bu_sync_acquire_fd "$RET_FILE_FD"'
         # shellcheck disable=SC2016
-        echo 'bu_scope_cleanup bu_release_fd "$RET_FILE_FD"'
+        echo 'bu_scope_add_cleanup bu_release_fd "$RET_FILE_FD"'
         echo 'echo >'"$fifo_file"
         fi
 
@@ -263,7 +281,10 @@ bu_spawn()
         {
             echo 'rm '"$driver_file"
             echo . /etc/profile
+            if "$is_source_bashrc"
+            then
             echo . "$HOME"/.bashrc
+            fi
             echo bash "$tmp_file"
         } > "$driver_file"
 
@@ -300,7 +321,7 @@ bu_spawn()
 
     bu_sync_acquire_file "$BU_TMUX_PANES_FILE"
     printf '%s\n' "$pane_id" >> "$BU_TMUX_PANES_FILE"
-    bu_sync_release_fd "$BU_TMUX_PANES_FILE"
+    bu_sync_release_file "$BU_TMUX_PANES_FILE"
     bu_log_debug "exit_code[$exit_code]"
 
     if "$is_joinable"
