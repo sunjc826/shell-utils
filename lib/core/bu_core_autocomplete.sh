@@ -1099,7 +1099,11 @@ __bu_bind_fzf_autocomplete_impl()
             fi
         fi
         
-        if ! "$is_nospace" && [[ "${readline_line:${#readline_line}-1}" != ' ' && "${command_line_back:0:1}" != ' ' ]]
+        # If we are expecting filenames, then if the file is a directory, we're not done, so don't append a space.
+        # If nospace is enabled, then don't add a space.
+        if ! { "$is_filenames" && [[ "${readline_line:${#readline_line}-1}" = / ]]; } && \
+           ! "$is_nospace" && \
+           [[ "${readline_line:${#readline_line}-1}" != ' ' && "${command_line_back:0:1}" != ' ' ]]
         then
             readline_line+=' '
         fi
