@@ -121,6 +121,22 @@ __bu_init_autocomplete()
         bu_log_debug "Completing command[$completion_command] with completion_func[$completion_func]"
         complete -F "$completion_func" "$completion_command"
     done
+
+    local command
+    local function_or_script_path
+    local function_or_script_basename
+    for command in "${!BU_COMMANDS[@]}"
+    do
+        function_or_script_path=${BU_COMMANDS[$command]}
+        bu_basename "$function_or_script_path"
+        function_or_script_basename=$BU_RET
+        # If it is a function, or if the script can be found on PATH, then define completion for it.
+        if command -v "$function_or_script_basename" &>/dev/null
+        then
+            complete -F __bu_autocomplete_completion_func_script "$function_or_script_basename"
+        fi
+    done
+
     complete -F __bu_autocomplete_completion_func_default -D
 }
 

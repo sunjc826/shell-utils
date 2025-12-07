@@ -870,7 +870,7 @@ __bu_autocomplete_completion_func_cli()
     local cur_word=$2
     local prev_word=$3
     case "$completion_command" in
-    bu);;
+    "$BU_CLI_COMMAND_NAME");;
     *) return 1;;
     esac
     
@@ -903,6 +903,14 @@ __bu_autocomplete_completion_func_cli()
     fi
 
     __bu_autocomplete_completion_func_master_impl "$function_or_script_path" "$cur_word" "$prev_word" "$comp_cword" "$tail" "${comp_words[@]}"
+}
+
+__bu_autocomplete_completion_func_script()
+{
+    local completion_command=$1
+    local cur_word=$2
+    local prev_word=$3
+    __bu_autocomplete_completion_func_master_impl "$completion_command" "$cur_word" "$prev_word" "$COMP_CWORD" "" "${COMP_WORDS[@]}"
 }
 
 # ```
