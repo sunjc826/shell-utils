@@ -39,6 +39,19 @@ BU_BUILTIN_COMMANDS_DIR=$BU_DIR/lib/commands
 # ```
 BU_NULL=BU_NULL
 
+# ```
+# *Description*:
+# Log a message with a given log level prefix
+#
+# *Params*:
+# - `$1`: log level prefix (e.g., DEBUG, INFO, WARN, ERR)
+# - `...`: message to log
+#
+# *Examples*:
+# ```bash
+# __bu_basic_log INFO "This is an info message"
+# ```
+# ```
 __bu_basic_log()
 {
     local log_prefix=$1
@@ -47,21 +60,49 @@ __bu_basic_log()
     printf '%s %s\n' "$log_prefix" "$*" >&2
 }
 
+# ```
+# *Description*:
+# Log a debug message
+#
+# *Params*:
+# - `...`: message to log
+# ```
 bu_basic_log_debug()
 {
     __bu_basic_log DEBUG "$*"
 }
 
+# ```
+# *Description*:
+# Log an info message
+#
+# *Params*:
+# - `...`: message to log
+# ```
 bu_basic_log_info()
 {
     __bu_basic_log INFO "$*"
 }
 
+# ```
+# *Description*:
+# Log a warning message
+#
+# *Params*:
+# - `...`: message to log
+# ```
 bu_basic_log_warn()
 {
     __bu_basic_log WARN "$*"
 }
 
+# ```
+# *Description*:
+# Log an error message
+#
+# *Params*:
+# - `...`: message to log
+# ```
 bu_basic_log_err()
 {
     __bu_basic_log ERR "$*"
@@ -196,8 +237,26 @@ then
     )
 fi
 
+# ```
+# Whether the current source function is the custom one defined by bu_def_source
+# ```
 BU_SOURCE_IS_CUSTOM=false
-
+# ```
+# *Description*:
+# Define a custom source function that supports additional options
+#
+# *Params*:
+# - `$1`: filepath to source
+# - `--__bu-once` (Optional): Source the file only if it hasn't been sourced before
+# - `--__bu-no-pushd` (Optional): Don't automatically pushd into the directory of the sourced file
+# - `...`: additional arguments to pass to the sourced file
+#
+# *Examples*:
+# ```bash
+# bu_def_source
+# source my_script.sh --__bu-once --__bu-no-pushd
+# ```
+# ```
 bu_def_source()
 {
     # Redefine source for the duration of the function
@@ -280,15 +339,25 @@ bu_def_source()
     }
 }
 
+# ```
+# *Description*:
+# Undefine the custom source function and restore the builtin source
+# ```
 bu_undef_source()
 {
     unset -f source
     BU_SOURCE_IS_CUSTOM=false
 }
 
+# ```
+# *Description*:
+# If the custom source function is defined, use it to source the given file(s).
+# Otherwise, temporarily define the custom source function, use it to source the given file(s),
+# and then undefine the custom source function.
+# ```
 bu_source()
 {
-    if "${BU_SOURCE_IS_CUSTOM}"
+    if "$BU_SOURCE_IS_CUSTOM"
     then
         # shellcheck disable=SC1090
         source "$@"
@@ -300,9 +369,15 @@ bu_source()
     fi
 }
 
+# ```
+# *Description*:
+# If the custom source function is defined, undefine it, use the builtin source to source the given file(s),
+# and then redefine the custom source function.
+# Otherwise, use the builtin source to source the given file(s).
+# ```
 bu_ext_source()
 {
-    if "${BU_SOURCE_IS_CUSTOM}"
+    if "$BU_SOURCE_IS_CUSTOM"
     then
         bu_undef_source
         # shellcheck disable=SC1090
@@ -314,8 +389,17 @@ bu_ext_source()
     fi
 }
 
+# ```
+# *Description*:
+# Source multiple files using the custom source function, ensuring each file is sourced only once.
+# ```
 bu_source_multi_once()
 {
+    if ! "$BU_SOURCE_IS_CUSTOM" && (($#))
+    then
+        bu_basic_log_warn "Using builtin source for bu_source_multi_once, --__bu-once feature will not be effective."
+        bu_source_multi "$@"
+    fi
     local filepath
     for filepath
     do
@@ -323,6 +407,11 @@ bu_source_multi_once()
         source "$filepath" --__bu-once
     done
 }
+
+# ```
+# *Description*:
+# Source multiple files.
+# ```
 bu_source_multi()
 {
     local filepath

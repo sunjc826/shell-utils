@@ -99,7 +99,7 @@ bu_autocomplete_def_compopt()
 
 bu_autocomplete_undef_compopt()
 {
-    unset -f source
+    unset -f compopt
     BU_COMPOPT_IS_CUSTOM=false
 }
 
