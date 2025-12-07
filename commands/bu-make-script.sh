@@ -3,6 +3,7 @@ function __bu_make_script_main()
 {
 set -e
 # Considering how slow WSL1 is, let's optimize a bit here too
+local invocation_dir=$PWD
 local script_name
 local script_dir
 case "$BASH_SOURCE" in
@@ -32,6 +33,7 @@ local dir=
 local name=
 local is_force=false
 local is_source_only=false
+local is_directory_relevant=true
 local is_help=false
 local error_msg=
 local options_finished=false
@@ -61,6 +63,9 @@ do
     --source)
         # This script is not meant to be executed in a new shell, but rather should be sourced
         is_source_only=true
+        ;;
+    --directory-irrelevant)
+        is_directory_relevant=false
         ;;
     -h|--help)
         # Print help
@@ -114,10 +119,31 @@ then
     bu_assert_err '--name not provided'
 fi
 
+if [[ -z "$dir" ]]
+then
+    bu_assert_err '--dir not provided'
+fi
+
 local target=
 local template=
 target=$dir/$name.sh
-template=$BU_LIB_TEMPLATE_DIR/script_template.sh
+if "$is_source_only"
+then
+    if "$is_directory_relevant"
+    then
+        template=$BU_LIB_TEMPLATE_DIR/source_script_template.sh
+    else
+        template=$BU_LIB_TEMPLATE_DIR/source_script_template_nodir.sh
+    fi
+else
+    if "$is_directory_relevant"
+    then
+        template=$BU_LIB_TEMPLATE_DIR/script_template.sh
+    else
+        bu_assert_err "Currently not supported (It doesn't hurt too much to pushd, since we're already forking a new bash process)"
+    fi
+fi
+
 
 mkdir -p "$dir"
 
@@ -145,7 +171,7 @@ fi
 
 (
     # shellcheck disable=SC2034
-    BU_SCRIPT_NAME=$name
+    BU_SCRIPT_NAME=$(tr - _ <<<"$name")
     bu_gen_substitute BU_SCRIPT_NAME <"$template" >"$target"
 )
 

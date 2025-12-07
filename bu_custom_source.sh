@@ -234,6 +234,8 @@ if ((!${#BU_SOURCE_ONCE_CACHE[@]}))
 then
     declare -A -g BU_SOURCE_ONCE_CACHE=(
         [BU_NULL]=true
+        [bu_entrypoint.sh]=true
+        [bu_custom_source.sh]=true
     )
 fi
 
@@ -241,6 +243,10 @@ fi
 # Whether the current source function is the custom one defined by bu_def_source
 # ```
 BU_SOURCE_IS_CUSTOM=false
+
+if [[ -z "$BU_SOURCE_IS_FORCE" ]]; then
+BU_SOURCE_IS_FORCE=false
+fi
 # ```
 # *Description*:
 # Define a custom source function that supports additional options
@@ -271,6 +277,7 @@ bu_def_source()
         BU_NULL) return 0;;
         esac
 
+        local is_force=false
         local is_once=false
         local is_pushd=true
         local shift_by
@@ -278,8 +285,14 @@ bu_def_source()
         do
             shift_by=1
             case "$1" in
+            --__bu-force)
+                is_force=true
+                ;;
             --__bu-once)
                 # Source the file only if it hasn't been sourced before
+                # Note that this option is more for optimization forces.
+                # Try not to make this a requisite for correctness. 
+                # (For e.g. we can force source by setting BU_SOURCE_IS_FORCE to true)
                 is_once=true
                 ;;
             --__bu-no-pushd)
@@ -296,6 +309,13 @@ bu_def_source()
             esac
             shift "$shift_by"
         done
+
+        local saved_is_force=$BU_SOURCE_IS_FORCE
+        if "$is_force"
+        then
+            BU_SOURCE_IS_FORCE=true
+        fi
+
         # We assume all bu entrypoints to be uniquely named
         # shellcheck disable=SC2317
         bu_basename "$source_filepath"
@@ -303,13 +323,18 @@ bu_def_source()
         # shellcheck disable=SC2317
         if "$is_once" && "${BU_SOURCE_ONCE_CACHE[$basename]:-false}"
         then
-            bu_basic_log_debug "$basename has already been sourced, skipping." >&2
-            return 0
+            if "$BU_SOURCE_IS_FORCE"
+            then
+                bu_basic_log_debug "$basename has already been sourced, forcing."
+            else
+                bu_basic_log_debug "$basename has already been sourced, skipping."
+                return 0
+            fi
         fi
 
         if "$is_once"
         then
-            bu_basic_log_debug "sourcing(--__bu-once) $source_filepath" >&2
+            bu_basic_log_debug "sourcing(--__bu-once) $source_filepath"
         fi
 
         # shellcheck disable=SC2317
@@ -337,6 +362,11 @@ bu_def_source()
             esac
             ;;
         esac
+
+        if "$is_force"
+        then
+            BU_SOURCE_IS_FORCE=$saved_is_force
+        fi
     }
 }
 

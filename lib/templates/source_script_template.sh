@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 function __bu_@BU_SCRIPT_NAME@_main()
 {
-set -e
 # Considering how slow WSL1 is, let's optimize a bit here too
 local invocation_dir=$PWD
 local script_name
@@ -17,14 +16,13 @@ case "$BASH_SOURCE" in
     ;;
 esac
 pushd "$script_dir" &>/dev/null
-script_dir=$PWD
 
-# This seems to be the most important optimization for WSL1, autocomplete is way more responsive
-if [[ -z "$COMP_CWORD" ]]
-then
+# Note that we do not source bu_entrypoint inside the sourceable script template
+# as it is assumed that sourceable scripts are sourced AFTER 
+# bu_entrypoint has been sourced by the user.
+
 # shellcheck source=./__bu_entrypoint_decl.sh
-source "$BU_DIR"/bu_entrypoint.sh
-fi
+source "$BU_NULL"
 
 bu_exit_handler_setup
 bu_scope_push_function

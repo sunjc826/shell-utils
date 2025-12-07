@@ -1,36 +1,14 @@
 #!/usr/bin/env bash
-function __bu_@BU_SCRIPT_NAME@_main()
+function __bu_bu_reload_main()
 {
-set -e
-# Considering how slow WSL1 is, let's optimize a bit here too
-local invocation_dir=$PWD
-local script_name
-local script_dir
-case "$BASH_SOURCE" in
-*/*)
-    script_name=${BASH_SOURCE##*/}
-    script_dir=${BASH_SOURCE%/*}
-    ;;
-*)
-    script_name=$BASH_SOURCE
-    script_dir=.
-    ;;
-esac
-pushd "$script_dir" &>/dev/null
-script_dir=$PWD
-
-# This seems to be the most important optimization for WSL1, autocomplete is way more responsive
-if [[ -z "$COMP_CWORD" ]]
-then
 # shellcheck source=./__bu_entrypoint_decl.sh
-source "$BU_DIR"/bu_entrypoint.sh
-fi
+source "$BU_NULL"
 
-bu_exit_handler_setup
 bu_scope_push_function
-bu_scope_add_cleanup bu_popd_silent
 bu_run_log_command "$@"
 
+local is_git_pull=false
+local is_force=false
 local is_help=false
 local error_msg=
 local options_finished=false
@@ -40,6 +18,12 @@ while (($#))
 do
     bu_parse_multiselect
     case "$1" in
+    -p|--pull)
+        is_git_pull=true
+        ;;
+    -f|--force)
+        is_force=true
+        ;;
     --)
         # Remaining options will be collected
         options_finished=true
@@ -75,7 +59,19 @@ then
     return 0
 fi
 
+if "$is_git_pull"
+then
+    git -C "$BU_DIR" pull
+fi
+
+local opt_force=()
+if "$is_force"
+then
+    opt_force=(--__bu-force)
+fi
+source "$BU_DIR"/bu_entrypoint.sh "${opt_force[@]}"
+
 bu_scope_pop_function
 }
 
-__bu_@BU_SCRIPT_NAME@_main "$@"
+__bu_bu_reload_main "$@"
