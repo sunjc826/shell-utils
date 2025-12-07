@@ -1069,7 +1069,7 @@ __bu_bind_fzf_autocomplete_impl()
     fi
 
     local selected_command
-    if selected_command=$(q
+    if selected_command=$(
         if "$fzf_dynamic_reload"
         then
             local command_line_no_last=$("${command_line[@]}")
