@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-function __bu_@SCRIPT_NAME@_main()
+function __bu_@BU_SCRIPT_NAME@_main()
 {
 set -e
 # Considering how slow WSL1 is, let's optimize a bit here too
@@ -77,4 +77,4 @@ fi
 bu_scope_pop_function
 }
 
-__bu_@SCRIPT_NAME@_main "$@"
+__bu_@BU_SCRIPT_NAME@_main "$@"
