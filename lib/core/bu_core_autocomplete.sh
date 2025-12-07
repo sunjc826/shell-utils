@@ -4,6 +4,105 @@ source "$BU_NULL"
 # shellcheck source=../../bu_user_defined.sh
 source "$BU_NULL"
 
+# MARK: Custom compopt
+declare -A -g BU_COMPOPT_CURRENT_COMPLETION_OPTIONS=()
+
+# Requires 
+# has_name: String
+# completion_options: AssociativeArray 
+# to be defined
+__bu_autocomplete_collect_compopt()
+{
+    if [[ "$1" = compopt ]]
+    then
+        shift
+    fi
+    completion_options=()
+    has_name=false
+    while (($#))
+    do
+        case "$1" in
+        -o|+o) completion_options[$2]=$1 ; shift 2 ;;
+        -D|-E|-I) shift ;;
+        *) has_name=true ; shift; break ;;
+        esac
+    done
+}
+
+bu_copy_associative_array()
+{
+    local -n __map1=$1
+    local -n __map2=$2
+    __map2=()
+    local key
+    for key in "${!__map1[@]}"
+    do
+        # shellcheck disable=SC2004
+        __map2[$key]=${__map1[$key]}
+    done
+}
+
+bu_insert_associative_array()
+{
+    local -n __map1=$1
+    local -n __map2=$2
+    local key
+    for key in "${!__map1[@]}"
+    do
+        # shellcheck disable=SC2004
+        __map2[$key]=${__map1[$key]}
+    done
+}
+
+bu_autocomplete_initialize_current_completion_options()
+{
+    local completion_command=$1
+    local has_name
+    local -A completion_options=()
+    # shellcheck disable=SC2046
+    __bu_autocomplete_collect_compopt $(compopt "$completion_command")
+    bu_copy_associative_array completion_options BU_COMPOPT_CURRENT_COMPLETION_OPTIONS
+    # bu_print_var BU_COMPOPT_CURRENT_COMPLETION_OPTIONS 
+}
+
+bu_autocomplete_def_compopt()
+{
+    BU_COMPOPT_IS_CUSTOM=true
+    # shellcheck disable=SC2329
+    compopt()
+    {
+        local -A completion_options=()
+        local has_name=false
+        __bu_autocomplete_collect_compopt "$@"
+
+        if ! "$has_name"
+        then
+            bu_insert_associative_array completion_options BU_COMPOPT_CURRENT_COMPLETION_OPTIONS
+            # local key
+            # local value
+            # local enabled_options=()
+            # for key in "${!completion_options[@]}"
+            # do
+            #     value=${completion_options[$key]}
+            #     case "$value" in
+            #     -o) enabled_options+=("$@") ;;
+            #     +o) ;;
+            #     esac
+            # done
+        fi
+
+        builtin compopt "$@"
+    }
+}
+
+bu_autocomplete_undef_compopt()
+{
+    unset -f source
+    BU_COMPOPT_IS_CUSTOM=false
+}
+
+bu_autocomplete_def_compopt
+
 # MARK: Parsers
 __BU_AUTOCOMPLETE_WORKING_DIRECTORY=.
 __BU_AUTOCOMPLETE_OPTION_REGEX='([-[:alnum:]_/]+[[:space:]]*\|?[[:space:]]*)*[-[:alnum:]_/]+[[:space:]]*'
@@ -290,8 +389,9 @@ bu_autocomplete_get_autocompletions()
     local completion_func=$BU_RET
     
     local command_line=("$@")
+    local COMP_FAKE=true
     local COMP_LINE=${command_line[*]}
-    local COMP_POINT=$READLINE_POINT # TODO: Is this a bug?
+    local COMP_POINT=${#COMP_LINE}
     local COMP_CWORD=$(( $# - 1 ))
     local COMP_WORDS=( "${command_line[@]}" )
     local COMP_WORDBREAKS=$' \t\n"\'><=;|&(:'
@@ -301,6 +401,7 @@ bu_autocomplete_get_autocompletions()
     (( $# >= 2 )) && prev_word=${command_line[-2]}
     COMPREPLY=()
     local tries
+    # bu_log_debug "$completion_func" "$completion_command" "$cur_word" "$prev_word"
     "$completion_func" "$completion_command" "$cur_word" "$prev_word" &>/dev/null
     local ret=$?
     for (( tries = 3; ret == 124 && tries > 0; tries-- ))
@@ -314,7 +415,6 @@ bu_autocomplete_get_autocompletions()
         "$completion_func" "$completion_command" "$cur_word" "$prev_word" &>/dev/null
         ret=$?
     done
-
     return "$ret"
 }
 
@@ -786,10 +886,41 @@ __bu_bind_fzf_autocomplete_impl()
         command_line+=("")
         opt_space="''"
     fi
+    
+    bu_autocomplete_initialize_current_completion_options "${command_line[0]}"
+    # bu_print_var BU_COMPOPT_CURRENT_COMPLETION_OPTIONS > /dev/tty
+    bu_autocomplete_get_autocompletions "${command_line[@]}" 2>/dev/null
+    # bu_print_var BU_COMPOPT_CURRENT_COMPLETION_OPTIONS > /dev/tty
+    local is_nospace=false
+    if [[ "${BU_COMPOPT_CURRENT_COMPLETION_OPTIONS[nospace]}" = -o ]]
+    then
+        is_nospace=true
+    fi
+    local is_filenames=false
+    if [[ "${BU_COMPOPT_CURRENT_COMPLETION_OPTIONS[filenames]}" = -o ]]
+    then
+        is_filenames=true
+    fi
+
+    if "$is_filenames"
+    then
+        local i
+        # We won't do this processing if COMPREPLY is too big to avoid lag
+        if ((${#COMPREPLY[@]} < 2000))
+        then
+            for (( i = 0; i < ${#COMPREPLY[@]}; i++ ))
+            do
+                if [[ -d "${COMPREPLY[i]}" && "${COMPREPLY[i]:${#COMPREPLY[i]}-1}" != / ]]
+                then
+                    COMPREPLY[i]+=/
+                fi
+            done
+        fi
+    fi
 
     local selected_command
     if selected_command=$(
-        bu_autocomplete_print_autocompletions "${command_line[@]}" 2>/dev/null | uniq | __bu_fzf_current_pos --exact +s --sync -q "${command_line[-1]}" --header "$ ${command_line[*]}..."
+        printf "%s\n" "${COMPREPLY[@]}" | uniq | __bu_fzf_current_pos --exact +s --sync -q "${command_line[-1]}" --header "$ ${command_line[*]}..."
     ) && [[ -n "$selected_command" ]]
     then
         # Bash seems to be bugged sometimes when READLINE_LINE is modified multiple times
@@ -808,10 +939,12 @@ __bu_bind_fzf_autocomplete_impl()
                 command_line_back=
             fi
         fi
-        if [[ "${readline_line:${#readline_line}-1}" != ' ' && "${command_line_back:0:1}" != ' ' ]]
+        
+        if ! "$is_nospace" && [[ "${readline_line:${#readline_line}-1}" != ' ' && "${command_line_back:0:1}" != ' ' ]]
         then
             readline_line+=' '
         fi
+
         readline_point=${#readline_line}
         readline_line+=$command_line_back
         if "$move_cursor_to_end"
@@ -894,3 +1027,4 @@ bu_autocomplete_remaining()
     fi
     bu_autocomplete "$arg1"
 }
+

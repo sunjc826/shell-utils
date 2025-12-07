@@ -2274,10 +2274,13 @@ bu_env_is_in_tmux()
 # - Exit code:
 #   - `0`: If in autocomplete context
 #   - `1`: If not in autocomplete context
+#
+# *Notes*
+# - Set BU_COMP_FAKE to a non-empty value to force this to be false
 # ```
 bu_env_is_in_autocomplete()
 {
-    [[ -n "$COMP_CWORD" ]]
+    [[ -n "$COMP_CWORD" && -z "$BU_COMP_FAKE" ]]
 }
 
 # MARK: Run utils
@@ -3012,7 +3015,7 @@ bu_print_var()
     local key
     local value
     printf "name: %s\nvalue:\n" "$1"
-    for key in "${__bu_print_var_name[@]}"
+    for key in "${!__bu_print_var_name[@]}"
     do
         printf "  [%s]=%s\n" "$key" "${__bu_print_var_name[$key]}"
     done
