@@ -21,7 +21,7 @@ script_dir=$PWD
 # This seems to be the most important optimization for WSL1, autocomplete is way more responsive
 if [[ -z "$COMP_CWORD" ]]
 then
-source ../../bu_entrypoint.sh
+source ../bu_entrypoint.sh
 fi
 bu_exit_handler_setup
 bu_scope_push_function
