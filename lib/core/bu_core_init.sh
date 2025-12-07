@@ -60,7 +60,7 @@ __bu_init_vscode()
             fi
         fi
         export VSCODE_IPC_HOOK_CLI="$BU_OUT_DIR"/VSCODE_IPC_HOOK_CLI.sock
-        echo VSCODE_IPC_HOOK_CLI=$VSCODE_IPC_HOOK_CLI
+        bu_log_debug VSCODE_IPC_HOOK_CLI=$VSCODE_IPC_HOOK_CLI
         if [[ -e "$BU_OUT_DIR"/vscode_server_instance/server/bin/remote-cli ]]
         then
             # Remote SSH
