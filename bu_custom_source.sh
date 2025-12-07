@@ -39,6 +39,34 @@ BU_BUILTIN_COMMANDS_DIR=$BU_DIR/lib/commands
 # ```
 BU_NULL=BU_NULL
 
+__bu_basic_log()
+{
+    local log_prefix=$1
+    shift
+    printf -v log_prefix '%-7s' "$log_prefix"
+    printf '%s %s\n' "$log_prefix" "$*" >&2
+}
+
+bu_basic_log_debug()
+{
+    __bu_basic_log DEBUG "$*"
+}
+
+bu_basic_log_info()
+{
+    __bu_basic_log INFO "$*"
+}
+
+bu_basic_log_warn()
+{
+    __bu_basic_log WARN "$*"
+}
+
+bu_basic_log_err()
+{
+    __bu_basic_log ERR "$*"
+}
+
 # ```
 # *Description*:
 # Check if a variable is BU_NULL
@@ -199,7 +227,7 @@ bu_def_source()
                 is_pushd=false
                 ;;
             --__bu-*)
-                echo "Unrecognized source option $1" &>/dev/null
+                bu_basic_log_err "Unrecognized source option $1"
                 return 1
                 ;;
             *)
@@ -215,13 +243,13 @@ bu_def_source()
         # shellcheck disable=SC2317
         if "$is_once" && "${BU_SOURCE_ONCE_CACHE[$basename]:-false}"
         then
-            echo "$basename has already been sourced, skipping." >&2
+            bu_basic_log_debug "$basename has already been sourced, skipping." >&2
             return 0
         fi
 
         if "$is_once"
         then
-            echo "sourcing(--__bu-once) $source_filepath" >&2
+            bu_basic_log_debug "sourcing(--__bu-once) $source_filepath" >&2
         fi
 
         # shellcheck disable=SC2317

@@ -36,10 +36,18 @@ __bu_init_vscode()
 {
     if [[ -n "$VSCODE_IPC_HOOK_CLI" && -n "$VSCODE_GIT_ASKPASS_NODE" ]]
     then
+        # This is the "real" VSCode integrated terminal
         bu_log_info setting vscode links
         ln -sf "$VSCODE_IPC_HOOK_CLI" "$BU_OUT_DIR"/VSCODE_IPC_HOOK_CLI.sock
         ln -sf "$(realpath -- "$(dirname -- "$VSCODE_GIT_ASKPASS_NODE")"/..)" "$BU_OUT_DIR"/vscode_server_instance
     else
+        # This is an external terminal
+        if [[ -n "$VSCODE_IPC_HOOK_CLI" ]]
+        then
+            # VSCODE_IPC_HOOK_CLI was already set, e.g. in a parent process
+            bu_log_info "code cli already initialized, to force VSCode CLI setup again, run ${BU_TPUT_BOLD}unset -v VSCODE_IPC_HOOK_CLI${BU_TPUT_RESET}" 
+            return
+        fi
         if  [[ ! ( -e "$BU_OUT_DIR"/VSCODE_IPC_HOOK_CLI.sock && -d "$BU_OUT_DIR"/vscode_server_instance ) ]]
         then
             local latest_server=$(bu_vscode_find_latest_server)

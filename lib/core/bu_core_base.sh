@@ -508,9 +508,9 @@ __bu_log()
     # echo ${BASH_LINENO[@]}
     if bu_env_is_in_autocomplete
     then
-        printf "${color}${log_prefix}${basename}:${BASH_LINENO[log_idx+1]}[${FUNCNAME[log_idx+2]}] %s${BU_TPUT_RESET}\n" "$*" >/dev/tty
+        printf "${color}${log_prefix} ${basename}:${BASH_LINENO[log_idx+1]}[${FUNCNAME[log_idx+2]}] %s${BU_TPUT_RESET}\n" "$*" >/dev/tty
     else
-        printf "${color}${log_prefix}${basename}:${BASH_LINENO[log_idx+1]}[${FUNCNAME[log_idx+2]}] %s${BU_TPUT_RESET}\n" "$*" >&2
+        printf "${color}${log_prefix} ${basename}:${BASH_LINENO[log_idx+1]}[${FUNCNAME[log_idx+2]}] %s${BU_TPUT_RESET}\n" "$*" >&2
     fi
 }
 
