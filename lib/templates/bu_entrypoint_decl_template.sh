@@ -2,7 +2,7 @@
 # it is only used to "declare" to bash language server statically 
 # where to source the entrypoint.
 # This file should be gitignored, by adding the following line:
-# bu_entrypoint_decl.sh
+# __bu_entrypoint_decl.sh
 
 # shellcheck source=@BU_DIR@/bu_entrypoint.sh
 source "$BU_NULL"
