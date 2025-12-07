@@ -1,4 +1,4 @@
-# shellcheck source=./bu_core_base.sh
+# shellcheck source=./bu_core_autocomplete.sh
 source "$BU_NULL"
 
 # MARK: Top-level CLI
@@ -178,6 +178,10 @@ bu_autohelp()
         exit_code=1
     fi
 
+    local -a bu_script_options=()
+    local -a bu_script_option_docs=()
+    eval "$(bu_autohelp_parse_case_block_help "${script_path}" "" "" "${BASH_LINENO[0]}")"
+
     printf '%s\n' "Help for ${BU_TPUT_BOLD}${script_path}${BU_TPUT_RESET}"
     if [[ -n "$header" ]]
     then
@@ -185,7 +189,22 @@ bu_autohelp()
         printf '%s\n' "$(bu_gen_remove_empty_lines <<<"$header" | bu_gen_trim)"
     fi
 
-    # TODO: Smart autohelp
+    printf '\n%s\n\n' "${BU_TPUT_BOLD}${BU_TPUT_DARK_BLUE}OPTIONS${BU_TPUT_RESET}"
+    local i
+    local option
+    local option_docs
+    for i in "${!bu_script_options[@]}"
+    do
+        option=${bu_script_options[i]}
+        option_docs=${bu_script_option_docs[i]}
+        option=${option//\|/${BU_TPUT_BLUE},${BU_TPUT_RESET}${BU_TPUT_BOLD}}
+        if [[ -z "$option_docs" ]]
+        then
+            printf '%s (No additional help)\n' "${BU_TPUT_BOLD}$option${BU_TPUT_RESET}"
+        else
+            printf '%s\n\t%s\n' "${BU_TPUT_BOLD}$option${BU_TPUT_RESET}" "${option_docs//$'\n'/$'\n\t'}"
+        fi
+    done
 
     if ((${#example_purposes[@]}))
     then

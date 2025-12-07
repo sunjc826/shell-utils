@@ -42,21 +42,28 @@ while (($#))
 do
     bu_parse_multiselect
     case "$1" in
-    --dir)
+    -d|--dir)
+        # Directory that the script should be placed in
+        # It should be one of 
+        # $(printf "  - ${BU_TPUT_BOLD}%s${BU_TPUT_RESET}\n" "${BU_COMMAND_SEARCH_DIRS[@]}")
         bu_parse_positional $# --enum "${BU_COMMAND_SEARCH_DIRS[@]}" enum--
         dir=${!shift_by}
         ;;
-    --name)
+    -n|--name)
+        # Name of the script, can be given without the ${BU_TPUT_BOLD}.sh${BU_TPUT_RESET} suffix
         bu_parse_positional $#
         name=${!shift_by}
         ;;
-    --force)
+    -f|--force)
+        # Overwrite any existing script at the same location
         is_force=true
         ;;
     --source)
+        # This script is not meant to be executed in a new shell, but rather should be sourced
         is_source_only=true
         ;;
     --help)
+        # Print help
         is_help=true
         ;;
     *)

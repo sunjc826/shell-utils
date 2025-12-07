@@ -40,11 +40,13 @@ do
     bu_parse_multiselect
     case "$1" in
     --)
+        # Remaining options will be collected
         options_finished=true
         shift
         break
         ;;
     --help)
+        # Print help
         is_help=true
         ;;
     *)

@@ -253,9 +253,11 @@ bu_source()
 {
     if "${BU_SOURCE_IS_CUSTOM}"
     then
+        # shellcheck disable=SC1090
         source "$@"
     else
         bu_def_source
+        # shellcheck disable=SC1090
         source "$@"
         bu_undef_source
     fi
@@ -266,9 +268,11 @@ bu_ext_source()
     if "${BU_SOURCE_IS_CUSTOM}"
     then
         bu_undef_source
+        # shellcheck disable=SC1090
         source "$@"
         bu_def_source
     else
+        # shellcheck disable=SC1090
         source "$@"
     fi
 }
@@ -278,6 +282,7 @@ bu_source_multi_once()
     local filepath
     for filepath
     do
+        # shellcheck disable=SC1090
         source "$filepath" --__bu-once
     done
 }
@@ -286,6 +291,7 @@ bu_source_multi()
     local filepath
     for filepath
     do
+        # shellcheck disable=SC1090
         source "$filepath"
     done
 }

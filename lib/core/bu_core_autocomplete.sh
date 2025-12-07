@@ -45,6 +45,7 @@ bu_copy_associative_array()
 bu_insert_associative_array()
 {
     local -n __map1=$1
+    # shellcheck disable=SC2178
     local -n __map2=$2
     local key
     for key in "${!__map1[@]}"
@@ -71,6 +72,7 @@ bu_autocomplete_def_compopt()
     # shellcheck disable=SC2329
     compopt()
     {
+        # shellcheck disable=SC2034
         local -A completion_options=()
         local has_name=false
         __bu_autocomplete_collect_compopt "$@"
@@ -129,6 +131,7 @@ bu_cat_arr_append()
     local file=$1
     local ret=${2:-BU_RET}
     mapfile -t <"$file"
+    # shellcheck disable=SC1083
     eval "$ret"+=\( \"\${MAPFILE[@]}\" \)
 }
 
@@ -246,6 +249,146 @@ bu_autocomplete_parse_case_block_options_cached()
         bu_stdout_to_ret --lines bu_autocomplete_parse_case_block_options "$function_or_script_path" "$start_indicator" "$end_indicator" "$start_lineno"
 }
 
+bu_autohelp_parse_case_block_help()
+{
+    local function_or_script_path=$1
+    local start_indicator=${2:-'case .* in'}
+    local end_indicator=$3
+    local end_lineno=$4
+
+    start_indicator=/$start_indicator/
+    if [[ -z "$end_indicator" ]]
+    then
+        end_indicator='! is_in_option && /^[[:space:]]*esac[[:space:]]*/'
+    else
+        end_indicator=/$end_indicator/
+    fi
+
+    cat <<EOF
+local -a bu_script_options=()
+local -a bu_script_option_docs=()
+EOF
+
+    local start_row=0
+    if [[ -n "$end_lineno" ]]
+    then
+        start_row=$(
+            if bu_symbol_is_function "$function_or_script_path"
+            then
+                declare -f "$function_or_script_path"
+            else
+                cat "$function_or_script_path"
+            fi |\
+            awk '
+            BEGIN {
+                is_start = 0
+                start_row = 0
+            }
+            '"$start_indicator"' {
+                is_start = 1
+                start_row = NR
+            }
+            '"$end_indicator"' {
+                is_start = 0
+            }
+            NR == '"$end_lineno"' {
+                print start_row
+                exit 0
+            }
+            '
+        )
+    fi
+
+    if bu_symbol_is_function "$function_or_script_path"
+    then
+        declare -f "$function_or_script_path"
+    else
+        cat "$function_or_script_path"
+    fi |\
+    awk '
+    NR < '"$start_row"' { next }
+    '"$start_indicator"' {
+        is_start = 1
+        idx = -1
+        outside = 0
+        in_alternatives = 1
+        pre_documentation = 2
+        in_documentation = 3
+        post_documentation = 4
+        state = 0
+        is_in_option = 0
+        is_in_documentation = 0
+    }
+    
+    ! is_start { next }
+
+    # { printf "# state=%s\n", state }
+
+    { line = $0 }
+
+    state < pre_documentation && ( \
+        ( /^[[:space:]]*'"$__BU_AUTOCOMPLETE_OPTION_REGEX"'\|\\/ && gsub( /\|\\/, "", line ) ) \
+    ) {
+        # print "# 1"
+        gsub(/^[[:space:]]*/, "", line)
+        if ( state == outside ) {
+            idx = idx + 1
+            state = in_alternatives
+            printf "bu_script_options[%d]=\"%s\n", idx, line
+        } else {
+            printf "%s\n", line
+        }
+        next
+    }
+
+    state < pre_documentation && ( \
+        ( /^[[:space:]]*'"$__BU_AUTOCOMPLETE_OPTION_REGEX"'\)/ && gsub( /\).*/, "", line) ) \
+    ) {
+        # print "# 2"
+        gsub(/^[[:space:]]*/, "", line)
+        if ( state == outside ) {
+            idx = idx + 1
+            printf "bu_script_options[%d]=\"%s\"\n", idx, line
+        } else {
+            printf "%s\"\n", line
+        }
+        printf "bu_script_option_docs[%d]=\"", idx, line
+        state = pre_documentation
+        next
+    }
+
+    { line = $0 }
+
+    state == pre_documentation {
+        # print "# 3"
+        if ( $0 ~ /^[[:space:]]*# ?.*/ ) {
+            state = in_documentation
+        } else {
+            state = post_documentation
+            printf "\"\n"
+        }
+    }
+
+    state == in_documentation {
+        # print "# 4"
+        if ( $0 ~ /^[[:space:]]*# ?.*/ ) {
+            sub( /^[[:space:]]*# ?/, "", line )
+            print line
+        } else {
+            state = post_documentation
+            printf "\"\n"
+        }
+    }
+
+    state == post_documentation && /.*;;[[:space:]]*$/ {
+        # print "# 5"
+        state = outside
+    }
+
+    '"$end_indicator"' { exit 0 }
+    '
+}
+
 bu_parse_multiselect()
 {
     if [[ -n "$error_msg" ]]
@@ -333,6 +476,7 @@ bu_parse_error_argn()
 {
     local option=$1
     local num_args_given=$2
+    # shellcheck disable=SC2034
     is_help=true
     error_msg="Expected $shift_by arguments for function[${FUNCNAME[1]}], option[$option], got $num_args_given arguments"
 }
@@ -389,7 +533,6 @@ bu_autocomplete_get_autocompletions()
     local completion_func=$BU_RET
     
     local command_line=("$@")
-    local COMP_FAKE=true
     local COMP_LINE=${command_line[*]}
     local COMP_POINT=${#COMP_LINE}
     local COMP_CWORD=$(( $# - 1 ))
@@ -560,8 +703,6 @@ __bu_autocomplete_completion_func_master_helper()
     local cur_word=$2
     local prev_word=$3
     shift 3
-    local is_retry=false
-    local is_fast=false
     local args=("$@")
     local i=0
     local offset
@@ -835,7 +976,7 @@ __bu_terminal_get_pos()
     local col row oldstty=$(stty -g </dev/tty)
     stty raw -echo min 0 </dev/tty
     printf '%b' '\033[6n' >/dev/tty
-    IFS='[;' read -d R _ row col </dev/tty
+    IFS='[;' read -r -d R _ row col </dev/tty
     stty "$oldstty" </dev/tty
     BU_RET=$((row-1))
 }
@@ -872,6 +1013,7 @@ __bu_bind_fzf_autocomplete_impl()
     local command_line_front=$1
     local command_line_back=$2
     local move_cursor_to_end=$3
+    local fzf_dynamic_reload=${4:-false}
     local command_line=($command_line_front)
     if (( !${#command_line[*]} ))
     then
@@ -919,8 +1061,17 @@ __bu_bind_fzf_autocomplete_impl()
     fi
 
     local selected_command
-    if selected_command=$(
-        printf "%s\n" "${COMPREPLY[@]}" | uniq | __bu_fzf_current_pos --exact +s --sync -q "${command_line[-1]}" --header "$ ${command_line[*]}..."
+    if selected_command=$(q
+        if "$fzf_dynamic_reload"
+        then
+            local command_line_no_last=$("${command_line[@]}")
+            unset command_line_no_last[-1]
+            __bu_fzf_current_pos --delimiter ' ' --exact +s --sync -q "${command_line[-1]}" --header "$ ${command_line[*]}..." \
+            --bind "start:reload-sync(bu_print_autocompletions ${command_line_escaped} $opt_space 2>/dev/null)" \
+            --bind "tab:replace-query+reload-sync(bu_print_autocompletions ${command_line_no_last[*]} '{q}' '' 2>/dev/null | sed 's'$'\001''^'$'\001'''{q}' '$'\001')"
+        else
+            printf "%s\n" "${COMPREPLY[@]}" | uniq | __bu_fzf_current_pos --exact +s --sync -q "${command_line[-1]}" --header "$ ${command_line[*]}..."
+        fi
     ) && [[ -n "$selected_command" ]]
     then
         # Bash seems to be bugged sometimes when READLINE_LINE is modified multiple times
@@ -1012,6 +1163,9 @@ bu_autocomplete()
     esac
 }
 
+# Requires
+# options_finished: Bool
+# remaining_options: Array
 bu_autocomplete_remaining()
 {
     local arg1=
@@ -1021,6 +1175,7 @@ bu_autocomplete_remaining()
         ;;
     esac
 
+    # shellcheck disable=SC2154
     if "$options_finished" && ((${#remaining_options[@]}))
     then
         autocompletion=("$@")

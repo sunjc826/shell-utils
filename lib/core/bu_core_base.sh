@@ -112,13 +112,13 @@ bu_ret_to_stdout()
     case "$1" in
     --str|--spaces|--lines)
         mode=${1#--}
+        shift
         ;;
     -*)
         echo "Unrecognized option $1" >&2
         return 1
         ;;
     esac
-    shift
 
     "$@"
     case "$mode" in
@@ -753,7 +753,7 @@ bu_log_unrecognized_option()
 #
 # *Examples*:
 # ```bash
-# join_by , a b c
+# bu_list_join , a b c
 # echo "$BU_RET" # a,b,c
 # ```
 # ```
