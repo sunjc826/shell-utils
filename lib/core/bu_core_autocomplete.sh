@@ -425,7 +425,7 @@ bu_parse_command_context()
     local end_marker=${start_marker:2}--
     autocompletion=(
         :"$end_marker"
-        --call bu "${start_marker:2}"
+        --call "$BU_CLI_COMMAND_NAME" "${start_marker:2}"
     )
 
     local i
