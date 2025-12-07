@@ -305,7 +305,7 @@ bu_cat_arr_append()
 # ```
 bu_symbol_is_function()
 {
-    bu_stdout_to_ret --proc type -t "$1"
+    bu_stdout_to_ret type -t "$1"
     [[ "$BU_RET" = function ]]
 }
 
@@ -321,7 +321,7 @@ bu_symbol_is_function()
 # ```
 bu_symbol_is_file()
 {
-    bu_stdout_to_ret --proc type -t "$1"
+    bu_stdout_to_ret type -t "$1"
     [[ "$BU_RET" = file ]]
 }
 
