@@ -88,7 +88,22 @@ fi
 
 if "$is_help"
 then
-    bu_autohelp
+    bu_autohelp \
+        --description "
+Create a shell-utils compatible \
+(can be used with ${BU_TPUT_BOLD}${BU_CLI_COMMAND_NAME}${BU_TPUT_RESET}) \
+script using a template
+" \
+        --example \
+        "Generate an executable script called ${BU_TPUT_BOLD}my_script.sh${BU_TPUT_RESET} in ${BU_TPUT_BOLD}${BU_COMMAND_SEARCH_DIRS[0]}${BU_TPUT_RESET}" \
+        "--dir ${BU_COMMAND_SEARCH_DIRS[0]} --name my_script" \
+        --example \
+        "Generate a source-able script called ${BU_TPUT_BOLD}my_sourceable_script.sh${BU_TPUT_RESET} in ${BU_TPUT_BOLD}${BU_COMMAND_SEARCH_DIRS[0]}${BU_TPUT_RESET}" \
+        "--dir ${BU_COMMAND_SEARCH_DIRS[0]} --name my_sourceable_script" \
+        --example \
+        "Overwrite an existing script called ${BU_TPUT_BOLD}my_script.sh${BU_TPUT_RESET} in ${BU_TPUT_BOLD}${BU_COMMAND_SEARCH_DIRS[0]}${BU_TPUT_RESET}" \
+        "--dir ${BU_COMMAND_SEARCH_DIRS[0]} --name my_script --force" \
+
     return 0
 fi
 
@@ -129,6 +144,7 @@ then
 fi
 
 (
+    # shellcheck disable=SC2034
     BU_SCRIPT_NAME=$name
     bu_gen_substitute BU_SCRIPT_NAME <"$template" >"$target"
 )

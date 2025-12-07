@@ -146,7 +146,7 @@ bu_autohelp()
     do
         shift_by=1
         case "$1" in
-        --header)
+        --description)
             header=$2
             shift_by=2
             ;;
