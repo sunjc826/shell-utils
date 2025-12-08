@@ -24,16 +24,26 @@ do
     case "$1" in
     -c|--command-dir)
         # Directory to add to the command search dirs, currently ${BU_COMMAND_SEARCH_DIRS[*]} 
-        bu_parse_positional $# --stdout compgen -A directory stdout--
+        bu_parse_positional $# \
+            --sh compopt -o filenames sh-- \
+            --stdout compgen -A directory stdout--
         command_dirs+=("${!shift_by}")
         ;;
     --remove-command-prefix)
+        # Assumes that scripts in the command dirs are of the form namespace-verb-noun.sh 
+        # and the user wants to not type out the namespace.
+        # This will strip out the 'namespace-' and '.sh' portion, so to invoke it, run '${BU_CLI_COMMAND_NAME} verb-noun'
+        # Note that an alternative script naming style is verb-namespace-noun.sh (i.e. PowerShell style),
+        # in this case this option isn't needed.
         is_remove_command_prefix=true
         ;;
     -p|--pull)
+        # Pull from the git repo
         is_git_pull=true
         ;;
     -f|--force)
+        # Forcefully source all files.
+        # Note that this option does not git pull --force, you need to do that manually if needed.
         is_force=true
         ;;
     --)

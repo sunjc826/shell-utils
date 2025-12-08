@@ -234,7 +234,6 @@ if ((!${#BU_SOURCE_ONCE_CACHE[@]}))
 then
     declare -A -g BU_SOURCE_ONCE_CACHE=(
         [BU_NULL]=true
-        [bu_entrypoint.sh]=true
         [bu_custom_source.sh]=true
     )
 fi
