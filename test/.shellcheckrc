@@ -1,0 +1,4 @@
+shell=bash
+external-sources=true
+disable=SC2128
+disable=SC2317
