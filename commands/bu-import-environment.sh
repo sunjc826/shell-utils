@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-function __bu_bu_reload_main()
+function __bu_bu_import_environment_main()
 {
+local invocation_dir=$PWD
+
 # shellcheck source=./__bu_entrypoint_decl.sh
 source "$BU_NULL"
 
 bu_scope_push_function
 bu_run_log_command "$@"
 
+local is_remove_command_prefix=false
+local command_dirs=()
 local is_git_pull=false
 local is_force=false
 local is_help=false
@@ -18,6 +22,14 @@ while (($#))
 do
     bu_parse_multiselect
     case "$1" in
+    -c|--command-dir)
+        # Directory to add to the command search dirs, currently ${BU_COMMAND_SEARCH_DIRS[*]} 
+        bu_parse_positional $# --stdout compgen -A directory stdout--
+        command_dirs+=("${!shift_by}")
+        ;;
+    --remove-command-prefix)
+        is_remove_command_prefix=true
+        ;;
     -p|--pull)
         is_git_pull=true
         ;;
@@ -59,6 +71,17 @@ then
     return 0
 fi
 
+local opt_remove_command_prefix=()
+if "$is_remove_command_prefix"
+then
+    opt_remove_command_prefix=(bu_convert_file_to_command_remove_prefix -)
+fi
+local command_dir
+for command_dir in "${command_dirs[@]}"
+do
+    bu_preinit_register_user_defined_subcommand_dir "$command_dir" "${opt_remove_command_prefix[@]}"
+done
+
 if "$is_git_pull"
 then
     git -C "$BU_DIR" pull
@@ -74,4 +97,4 @@ source "$BU_DIR"/bu_entrypoint.sh "${opt_force[@]}"
 bu_scope_pop_function
 }
 
-__bu_bu_reload_main "$@"
+__bu_bu_import_environment_main "$@"

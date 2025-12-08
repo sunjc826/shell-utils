@@ -33,14 +33,21 @@ bu_preinit_register_user_defined_completion_func()
     BU_AUTOCOMPLETE_COMPLETION_FUNCS[$completion_command]=$completion_func
 }
 
-declare -a -g BU_COMMAND_SEARCH_DIRS=()
 declare -A -g BU_COMMANDS=()
+declare -A -g BU_COMMAND_SEARCH_DIRS=()
 declare -A -g BU_COMMAND_PROPERTIES=()
 bu_preinit_register_user_defined_subcommand_dir()
 {
     local dir=$1
-    local convert_file_to_subcommand=$2
-    local properties=$3
+    shift
+    local convert_file_to_command=
+    if (($#))
+    then
+        printf -v convert_file_to_command '%q ' "$@"
+    fi
+
+    bu_realpath "$dir"
+    dir=$BU_RET
 
     if [[ ! -d "$dir" ]]
     then
@@ -48,38 +55,7 @@ bu_preinit_register_user_defined_subcommand_dir()
         return 1
     fi
 
-    BU_COMMAND_SEARCH_DIRS+=("$dir")
-
-    local file
-    local command
-    for file in $(find "$dir" -printf "%P\n")
-    do
-        case "$file" in
-        *.txt|README|README.*|*.md) 
-            continue
-            ;;
-        __*)
-            # 2 underscores in front can be used to hide scripts
-            continue
-            ;;
-        esac
-
-        command=${file%.sh}
-        if [[ -n "$convert_file_to_subcommand" ]]
-        then
-            if "$convert_file_to_subcommand" "$file"
-            then
-                command=$BU_RET
-            fi
-        fi
-
-        BU_COMMANDS[$command]=$dir/$file
-
-        if [[ -n "$properties" ]]
-        then
-            BU_COMMAND_PROPERTIES[$command]=$properties
-        fi
-    done
+    BU_COMMAND_SEARCH_DIRS[$dir]=$convert_file_to_command
 }
 
 bu_preinit_register_user_defined_subcommand_file()
@@ -122,11 +98,13 @@ bu_preinit_register_user_defined_subcommand_function()
     fi
 }
 
-__bu_remove_bu_prefix()
+bu_convert_file_to_command_remove_prefix()
 {
-    bu_basename "$1"
+    local delimiter=$1
+    local file_path=$2
+    bu_basename "$file_path"
     local file_base=$BU_RET
     local file_base_no_ext=${file_base%.sh}
-    BU_RET=${file_base_no_ext#bu-}
+    BU_RET=${file_base_no_ext#*$delimiter} # Don't quote prefix, we allow it to be a pattern
 }
-bu_preinit_register_user_defined_subcommand_dir "$BU_BUILTIN_COMMANDS_DIR" __bu_remove_bu_prefix
+bu_preinit_register_user_defined_subcommand_dir "$BU_BUILTIN_COMMANDS_DIR" bu_convert_file_to_command_remove_prefix -

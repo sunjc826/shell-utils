@@ -40,6 +40,21 @@ bu_mkdir()
     fi
 }
 
+bu_realpath()
+{
+    local dir=$1
+    local cwd=${2:-$PWD}
+
+    case "$dir" in
+    /*)
+        BU_RET=$dir
+        ;;
+    *)
+        BU_RET=$cwd/${dir#./}
+        ;;
+    esac
+}
+
 BU_BASE_PROC_DIR=$BU_OUT_DIR/proc
 BU_PROC_DIR=$BU_BASE_PROC_DIR/$$
 BU_CACHE_DIR=$BU_OUT_DIR/cache

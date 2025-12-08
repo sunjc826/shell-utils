@@ -719,10 +719,10 @@ __bu_autocomplete_completion_func_master_helper()
             # Explicit literal
             COMPREPLY+=("${args[idx]:1}")
             ;;
-        --append-cur-word)
+        -c|--append-cur-word)
             opt_cur_word=("$cur_word")
             ;;
-        --no-append-cur-word)
+        +c|--no-append-cur-word)
             opt_cur_word=()
             ;;
         --options-of)
@@ -735,7 +735,7 @@ __bu_autocomplete_completion_func_master_helper()
             __bu_autocomplete_compreply_append_options_at "${args[i+1]}" "${args[i+2]}"
             shift_by=3
             ;;
-        --sh|--enum|--stdout|--ret|--call)
+        --sh|--enum|--stdout|--ret|--as-if)
             # Generic completion utilities
             terminator=${args[i]#--}--
             for (( offset = 1; i + offset < "${#args[@]}"; offset++ ))
@@ -759,7 +759,7 @@ __bu_autocomplete_completion_func_master_helper()
                     COMPREPLY+=("${BU_RET[@]}")
                 fi
                 ;;
-            --call)
+            --as-if)
                 bu_autocomplete_add_autocompletions "${sub_args[@]}" "${opt_cur_word[@]}"
                 ;;
             --sh)
