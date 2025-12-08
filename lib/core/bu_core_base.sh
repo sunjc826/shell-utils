@@ -2544,22 +2544,22 @@ bu_run_log_command()
 
 bu_edit_file()
 {
-    local log_file=$1
+    local files=("$@")
     local editor=${VISUAL:-$EDITOR}
     case "$editor" in
     *'bu_code_wait.sh'|'code '*)
-        code "$log_file"
+        code "${files[@]}"
         ;;
     '')
         if command -v code &>/dev/null
         then
-            code "$log_file"
+            code "${files[@]}"
         else
-            vim "$log_file"
+            vim "${files[@]}"
         fi 
         ;;
     *)
-        $editor "$log_file"
+        $editor "${files[@]}"
         ;;
     esac
 }
