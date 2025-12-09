@@ -27,6 +27,11 @@ __bu_cli_command_properties()
 {
     local bu_command=$1
     local function_or_script_path=${BU_COMMANDS[$bu_command]}
+    if [[ -z "$function_or_script_path" ]]
+    then
+        # Also accept non bu command
+        function_or_script_path=$bu_command
+    fi
     local properties="${BU_COMMAND_PROPERTIES[$bu_command]}"
     if [[ -z "$properties" ]]
     then
@@ -209,11 +214,18 @@ bu_autohelp()
     if ((${#example_purposes[@]}))
     then
         printf "\n%s\n\n" "${BU_TPUT_BOLD}${BU_TPUT_DARK_BLUE}EXAMPLES${BU_TPUT_RESET}"
+
+        __bu_cli_command_properties "${script_path}"
+        local opt_source=
+        case "$BU_RET" in
+        source) opt_source='source ';;
+        esac
+
         local i
         for i in "${!example_purposes[@]}"
         do
             printf "%s:\n" "- ${example_purposes[i]}"
-            printf "\t%s %s\n\n" "${BU_TPUT_BOLD}${script_name}" "${example_command_lines[i]}${BU_TPUT_RESET}"
+            printf "\t%s %s\n\n" "${BU_TPUT_BOLD}${opt_source}${script_name}" "${example_command_lines[i]}${BU_TPUT_RESET}"
         done
     fi
 

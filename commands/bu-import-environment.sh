@@ -77,7 +77,15 @@ fi
 
 if "$is_help"
 then
-    bu_autohelp
+    bu_autohelp --description "
+Modifies the 'bu' environment. Optionally, syncs with the upstream git repo.
+    " \
+    --example \
+    "Refresh some dynamic variables, e.g. after editing $BU_DIR/config/bu_config_dynamic.sh" \
+    ""   \
+    --example \
+    "Reload a possibly broken (for whatever reason) environment" \
+    "--force"
     return 0
 fi
 
