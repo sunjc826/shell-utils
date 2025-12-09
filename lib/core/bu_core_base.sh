@@ -2224,9 +2224,14 @@ __bu_env_remove_from_generic_path()
 {
     local -n __path_var=$1
     local path_to_remove=$2
+    if [[ "$__path_var" = "$path_to_remove" ]]
+    then
+    __path_var=
+    else
     __path_var=${__path_var//:$path_to_remove:/:} # delete instances in the middle
-    __path_var=${__path_var/#$path_to_remove:/} # delete instance at the beginning
-    __path_var=${__path_var%:$path_to_remove/} # delete instance at the end
+    __path_var=${__path_var#$path_to_remove:} # delete instance at the beginning
+    __path_var=${__path_var%:$path_to_remove} # delete instance at the end
+    fi
 }
 
 # ```

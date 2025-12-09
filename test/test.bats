@@ -1,4 +1,4 @@
-#!/usr/bin/env bats
+#!/usr/bin/env -S bats --jobs 16 
 
 setup() {
     load "test_helper/bats-assert/load.bash"    
@@ -450,6 +450,60 @@ function test_bu_env_prepend_generic_path { #@test
     TEST_PATH="/usr/local/bin"
     __bu_env_prepend_generic_path TEST_PATH "/usr/bin"
     assert_equal "$TEST_PATH" "/usr/bin:/usr/local/bin"
+}
+
+
+
+# Tests for __bu_env_remove_from_generic_path
+function test_bu_env_remove_from_generic_path { #@test
+    # Remove from empty path (no-op)
+    local TEST_PATH=""
+    __bu_env_remove_from_generic_path TEST_PATH "/usr/bin"
+    assert_equal "$TEST_PATH" ""
+
+    # Remove middle element
+    TEST_PATH="/a:/b:/c"
+    __bu_env_remove_from_generic_path TEST_PATH "/b"
+    assert_equal "$TEST_PATH" "/a:/c"
+
+    # Remove first element
+    TEST_PATH="/b:/a:/c"
+    __bu_env_remove_from_generic_path TEST_PATH "/b"
+    assert_equal "$TEST_PATH" "/a:/c"
+
+    # Remove last element
+    TEST_PATH="/a:/b:/c"
+    __bu_env_remove_from_generic_path TEST_PATH "/c"
+    assert_equal "$TEST_PATH" "/a:/b"
+
+    # Remove duplicate elements
+    TEST_PATH="/a:/b:/a:/c"
+    __bu_env_remove_from_generic_path TEST_PATH "/a"
+    # both /a occurrences should be removed
+    assert_equal "$TEST_PATH" "/b:/c"
+
+    # Remove non-existent element (no-op)
+    TEST_PATH="/x:/y:/z"
+    __bu_env_remove_from_generic_path TEST_PATH "/notfound"
+    assert_equal "$TEST_PATH" "/x:/y:/z"
+
+    # Ensure substrings are not removed (exact match required)
+    TEST_PATH="/usr/local/bin:/usr/bin"
+    __bu_env_remove_from_generic_path TEST_PATH "/usr"
+    assert_equal "$TEST_PATH" "/usr/local/bin:/usr/bin"
+
+    # It is allowed to remove multiple consecutive paths at once
+    TEST_PATH="/a:/b:/c"
+    __bu_env_remove_from_generic_path TEST_PATH "/b:/c"
+    assert_equal "$TEST_PATH" "/a"
+
+    TEST_PATH="/a:/b:/c"
+    __bu_env_remove_from_generic_path TEST_PATH "/a:/b"
+    assert_equal "$TEST_PATH" "/c"
+
+    TEST_PATH="/a"
+    __bu_env_remove_from_generic_path TEST_PATH "/a"
+    assert_equal "$TEST_PATH" ""
 }
 
 
