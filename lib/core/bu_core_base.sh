@@ -136,6 +136,7 @@ bu_ret_to_stdout()
     esac
 
     "$@"
+    local exit_code=$?    
     case "$mode" in
     str)
         printf '%s' "$BU_RET"
@@ -147,6 +148,7 @@ bu_ret_to_stdout()
         printf '%s\n' "${BU_RET[@]}" 
         ;;
     esac
+    return "$exit_code"
 }
 
 bu_stdout_to_ret()
@@ -196,15 +198,18 @@ bu_stdout_to_ret()
     fi
 
     local -n outparam=$outparam_name
+    local exit_code=
     case "$mode" in
     str)
         if "$is_proc"
         then
             outparam=
-            "$@" >&"$BU_PROC_FIFO_FD" || return 1
+            "$@" >&"$BU_PROC_FIFO_FD"
+            exit_code=$?
             read -r "${outparam_name?}" <&"$BU_PROC_FIFO_FD"  
         else
             outparam=$("$@")
+            exit_code=$?
         fi
         ;;
     spaces)
@@ -213,23 +218,32 @@ bu_stdout_to_ret()
         if "$is_proc"
         then
             outparam=()
-            "$@" >&"$BU_PROC_FIFO_FD" || return 1
+            "$@" >&"$BU_PROC_FIFO_FD"
+            exit_code=$?
             read -r -a "${outparam_name?}" <&"$BU_PROC_FIFO_FD"
         else
             outparam=($("$@"))
+            exit_code=$?
         fi
         ;;
     lines)
         if "$is_proc"
         then
             outparam=()
-            "$@" >&"$BU_PROC_FILE_FD" || return 1
+            "$@" >&"$BU_PROC_FILE_FD"
+            exit_code=$?
             mapfile -t "$outparam_name" <&"$BU_PROC_FILE_FD"
         else
-            mapfile -t "$outparam_name" < <("$@")
+            local fd
+            exec {fd}< <("$@")
+            local pid=$!
+            mapfile -t "$outparam_name" <&"$fd"
+            wait "$pid"
+            exit_code=$?
         fi
         ;;
     esac
+    return "$exit_code"
 }
 
 # ```
@@ -858,7 +872,7 @@ bu_list_sort()
         ifs_defined=true
         saved_ifs=$IFS
     fi
-    IFS=$'\n' BU_RET=($(sort "$@"))
+    IFS=$'\n' BU_RET=($(printf '%s\n' "$@" | sort))
     # TODO: Do we need this?
     if "$ifs_defined"
     then
@@ -875,7 +889,7 @@ bu_list_version_sort()
         ifs_defined=true
         saved_ifs=$IFS
     fi
-    IFS=$'\n' BU_RET=($(sort --version-sort "$@"))
+    IFS=$'\n' BU_RET=($(printf '%s\n' "$@" | sort --version-sort))
     # TODO: Do we need this?
     if "$ifs_defined"
     then
