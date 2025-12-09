@@ -24,7 +24,6 @@ pushd "$script_dir" &>/dev/null
 # shellcheck source=./__bu_entrypoint_decl.sh
 source "$BU_NULL"
 
-bu_exit_handler_setup
 bu_scope_push_function
 bu_scope_add_cleanup bu_popd_silent
 bu_run_log_command "$@"

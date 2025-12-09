@@ -47,8 +47,8 @@ do
     -d|--dir)
         # Directory that the script should be placed in
         # It should be one of 
-        # $(printf "  - ${BU_TPUT_BOLD}%s${BU_TPUT_RESET}\n" "${BU_COMMAND_SEARCH_DIRS[@]}")
-        bu_parse_positional $# --enum "${BU_COMMAND_SEARCH_DIRS[@]}" enum--
+        # $(printf "  - ${BU_TPUT_BOLD}%s${BU_TPUT_RESET}\n" "${!BU_COMMAND_SEARCH_DIRS[@]}")
+        bu_parse_positional $# --enum "${!BU_COMMAND_SEARCH_DIRS[@]}" enum--
         dir=${!shift_by}
         ;;
     -n|--name)
@@ -171,7 +171,7 @@ fi
 
 (
     # shellcheck disable=SC2034
-    BU_SCRIPT_NAME=$(tr -: __ <<<"${name,,}")
+    BU_SCRIPT_NAME=$(tr -- -: __ <<<"${name,,}")
     bu_gen_substitute BU_SCRIPT_NAME <"$template" >"$target"
 )
 

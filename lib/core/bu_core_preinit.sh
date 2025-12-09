@@ -13,6 +13,7 @@ declare -A -g BU_KEY_BINDINGS=(
     ['\eg']="__bu_bind_toggle_gdb"
     ['\ea']="__bu_bind_fzf_history"
     ['\ex']="__bu_bind_fzf_autocomplete"
+    ['\C-x']="__bu_bind_fzf_autocomplete"
 )
 
 bu_preinit_register_user_defined_key_binding()
