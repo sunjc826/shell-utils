@@ -383,4 +383,73 @@ function test_bu_str_split { #@test
     assert_equal "${BU_RET[0]}" ""
 }
 
+# Tests for __bu_env_append_generic_path
+function test_bu_env_append_generic_path { #@test
+    # Test appending to empty path variable
+    local TEST_PATH=""
+    __bu_env_append_generic_path TEST_PATH "/usr/bin"
+    assert_equal "$TEST_PATH" "/usr/bin"
+    
+    # Test appending to existing path
+    TEST_PATH="/usr/bin"
+    __bu_env_append_generic_path TEST_PATH "/usr/local/bin"
+    assert_equal "$TEST_PATH" "/usr/bin:/usr/local/bin"
+    
+    # Test appending when path already exists (should not duplicate)
+    TEST_PATH="/usr/bin:/usr/local/bin"
+    __bu_env_append_generic_path TEST_PATH "/usr/bin"
+    assert_equal "$TEST_PATH" "/usr/bin:/usr/local/bin"
+    
+    # Test appending another new path
+    TEST_PATH="/usr/bin:/usr/local/bin"
+    __bu_env_append_generic_path TEST_PATH "/opt/bin"
+    assert_equal "$TEST_PATH" "/usr/bin:/usr/local/bin:/opt/bin"
+
+    TEST_PATH="/usr/local/bin"
+    __bu_env_append_generic_path TEST_PATH "/usr/bin"
+    assert_equal "$TEST_PATH" "/usr/local/bin:/usr/bin"
+    
+    # Test appending to path with multiple entries
+    TEST_PATH="/a:/b:/c"
+    __bu_env_append_generic_path TEST_PATH "/d"
+    assert_equal "$TEST_PATH" "/a:/b:/c:/d"
+
+    TEST_PATH="/a:/b:/c"
+    __bu_env_append_generic_path TEST_PATH "/d:/a:/b:/c"
+    assert_equal "$TEST_PATH" "/a:/b:/c:/d:/a:/b:/c"
+}
+
+# Tests for __bu_env_prepend_generic_path
+function test_bu_env_prepend_generic_path { #@test
+    # Test prepending to empty path variable
+    local TEST_PATH=""
+    __bu_env_prepend_generic_path TEST_PATH "/usr/bin"
+    assert_equal "$TEST_PATH" "/usr/bin"
+    
+    # Test prepending to existing path
+    TEST_PATH="/usr/local/bin"
+    __bu_env_prepend_generic_path TEST_PATH "/usr/bin"
+    assert_equal "$TEST_PATH" "/usr/bin:/usr/local/bin"
+    
+    # Test prepending when path already exists (should not duplicate)
+    TEST_PATH="/usr/bin:/usr/local/bin"
+    __bu_env_prepend_generic_path TEST_PATH "/usr/bin"
+    assert_equal "$TEST_PATH" "/usr/bin:/usr/local/bin"
+    
+    # Test prepending another new path (goes to front)
+    TEST_PATH="/usr/bin:/usr/local/bin"
+    __bu_env_prepend_generic_path TEST_PATH "/opt/bin"
+    assert_equal "$TEST_PATH" "/opt/bin:/usr/bin:/usr/local/bin"
+    
+    # Test prepending to path with multiple entries
+    TEST_PATH="/a:/b:/c"
+    __bu_env_prepend_generic_path TEST_PATH "/z"
+    assert_equal "$TEST_PATH" "/z:/a:/b:/c"
+    
+    # Test that prepend checks for exact match (with colons)
+    TEST_PATH="/usr/local/bin"
+    __bu_env_prepend_generic_path TEST_PATH "/usr/bin"
+    assert_equal "$TEST_PATH" "/usr/bin:/usr/local/bin"
+}
+
 

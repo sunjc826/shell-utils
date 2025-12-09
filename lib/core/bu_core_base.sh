@@ -411,11 +411,13 @@ bu_cached_keyed_execute()
             ;;
         esac
     else
+        local exit_code
         "$@"
-        if (($?))
+        exit_code=$?
+        if ((exit_code))
         then
             echo "Failed: command[$*]" >&2
-            return 1
+            return "$exit_code"
         fi
         case "$mode" in
         str)
@@ -1958,7 +1960,7 @@ bu_sync_wait_group_wait()
             bu_log_err "The fifo[$fifo] does not exist"
             return 1
         fi
-        read discarded <"$fifo"
+        read -r discarded <"$fifo"
     done
 }
 
@@ -2522,7 +2524,7 @@ __bu_cycle_logs()
         mv "$command.log" "$command.0.log"
     fi
 
-    for (( i=$cycle_length; i > 0; i-- ))
+    for (( i = cycle_length; i > 0; i-- ))
     do
         if [[ -e "$command.$((i-1)).log" ]]
         then
@@ -3153,7 +3155,7 @@ __bu_bind_edit()
 __bu_bind_toggle_gdb()
 {
     local words=()
-    read -a words <<<"$READLINE_LINE"
+    read -r -a words <<<"$READLINE_LINE"
     case "$words" in
     gdb) words=("${words[@]:3}") ;;
     '') return ;;
