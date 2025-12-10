@@ -42,8 +42,8 @@ bu_mkdir()
 
 bu_realpath()
 {
-    local dir=$1
-    local cwd=${2:-$PWD}
+    local -r dir=$1
+    local -r cwd=${2:-$PWD}
 
     case "$dir" in
     /*)

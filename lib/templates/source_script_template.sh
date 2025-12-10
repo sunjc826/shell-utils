@@ -2,7 +2,7 @@
 function __bu_@BU_SCRIPT_NAME@_main()
 {
 # Considering how slow WSL1 is, let's optimize a bit here too
-local invocation_dir=$PWD
+local -r invocation_dir=$PWD
 local script_name
 local script_dir
 case "$BASH_SOURCE" in

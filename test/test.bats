@@ -506,4 +506,13 @@ function test_bu_env_remove_from_generic_path { #@test
     assert_equal "$TEST_PATH" ""
 }
 
+function test_bu_convert_file_to_command_namespace { #@test
+    bu_convert_file_to_command_namespace none /a/b/c/namespace-verb-noun1-noun2-noun3.sh
+    assert_equal "$BU_RET" namespace-verb-noun1-noun2-noun3
 
+    bu_convert_file_to_command_namespace prefix /a/b/c/namespace-verb-noun1-noun2-noun3.sh
+    assert_equal "$BU_RET" verb-noun1-noun2-noun3
+
+    bu_convert_file_to_command_namespace powershell /a/b/c/verb-namespace-noun1-noun2-noun3.sh
+    assert_equal "$BU_RET" verb-noun1-noun2-noun3
+}

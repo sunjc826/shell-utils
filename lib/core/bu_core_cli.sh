@@ -245,3 +245,18 @@ bu_autohelp()
 # - Exit code of the sub-command
 # ```
 eval "$BU_CLI_COMMAND_NAME"'() { builtin source bu_impl.sh "$@"; }'
+
+# Always define bu
+if [[ "$BU_CLI_COMMAND_NAME" != bu ]]
+then
+    bu() { builtin source bu_impl.sh "$@"; }
+fi
+
+
+BU_ENUM_NAMESPACE_STYLE=(
+    none # default
+    prefix-keep
+    powershell-keep
+    prefix
+    powershell
+)

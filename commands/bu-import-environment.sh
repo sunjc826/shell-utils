@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 function __bu_bu_import_environment_main()
 {
-local invocation_dir=$PWD
+local -r invocation_dir=$PWD
 
 # shellcheck source=./__bu_entrypoint_decl.sh
 source "$BU_NULL"
@@ -9,7 +9,7 @@ source "$BU_NULL"
 bu_scope_push_function
 bu_run_log_command "$@"
 
-local is_remove_command_prefix=false
+local namespace_style=
 local command_dirs=()
 local is_git_pull=false
 local is_force=false
@@ -29,13 +29,18 @@ do
             --stdout compgen -A directory stdout--
         command_dirs+=("${!shift_by}")
         ;;
-    --remove-command-prefix)
-        # Assumes that scripts in the command dirs are of the form namespace-verb-noun.sh 
-        # and the user wants to not type out the namespace.
-        # This will strip out the 'namespace-' and '.sh' portion, so to invoke it, run '${BU_CLI_COMMAND_NAME} verb-noun'
-        # Note that an alternative script naming style is verb-namespace-noun.sh (i.e. PowerShell style),
-        # in this case this option isn't needed.
-        is_remove_command_prefix=true
+    --namespace-style)
+        # One of ${BU_ENUM_NAMESPACE_STYLE[*]}. Default is empty, which has the same behavior as an explicit none.
+        # - none: No namespace in command
+        # - prefix-keep: Synonym to none
+        # - powershell-keep: Synonym to none
+        # - prefix: Assumes that scripts in the command dirs are of the form namespace-verb-noun.sh 
+        #           and the user wants to not type out the namespace.
+        #           This will strip out the 'namespace-' and '.sh' portion, so to invoke it, run '${BU_CLI_COMMAND_NAME} verb-noun'
+        # - powershell: Script naming style is verb-namespace-noun.sh (i.e. PowerShell style),
+        #               in this case this option isn't needed.
+        bu_parse_positional $# --enum "${BU_ENUM_NAMESPACE_STYLE[@]}" enum--
+        namespace_style=${!shift_by}
         ;;
     -p|--pull)
         # Pull from the git repo
@@ -89,15 +94,15 @@ Modifies the 'bu' environment. Optionally, syncs with the upstream git repo.
     return 0
 fi
 
-local opt_remove_command_prefix=()
-if "$is_remove_command_prefix"
+local opt_command_mapper=()
+if [[ -n "$namespace_style" ]]
 then
-    opt_remove_command_prefix=(bu_convert_file_to_command_remove_prefix -)
+    opt_command_mapper=(bu_convert_file_to_command_namespace "$namespace_style")
 fi
 local command_dir
 for command_dir in "${command_dirs[@]}"
 do
-    bu_preinit_register_user_defined_subcommand_dir "$command_dir" "${opt_remove_command_prefix[@]}"
+    bu_preinit_register_user_defined_subcommand_dir "$command_dir" "${opt_command_mapper[@]}"
 done
 
 if "$is_git_pull"

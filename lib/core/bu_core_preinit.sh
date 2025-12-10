@@ -99,13 +99,49 @@ bu_preinit_register_user_defined_subcommand_function()
     fi
 }
 
-bu_convert_file_to_command_remove_prefix()
+bu_convert_file_to_command_prefix()
 {
-    local delimiter=$1
-    local file_path=$2
+    local -r delimiter=$1
+    local -r file_path=$2
     bu_basename "$file_path"
     local file_base=$BU_RET
     local file_base_no_ext=${file_base%.sh}
     BU_RET=${file_base_no_ext#*$delimiter} # Don't quote prefix, we allow it to be a pattern
 }
-bu_preinit_register_user_defined_subcommand_dir "$BU_BUILTIN_COMMANDS_DIR" bu_convert_file_to_command_remove_prefix -
+
+bu_convert_file_to_command_powershell()
+{
+    local -r file_path=$1
+    bu_basename "$file_path"
+    local file_base_no_ext=${BU_RET%.sh}
+    local verb=${file_base_no_ext%%-*}
+    local no_verb=${file_base_no_ext#*-}
+    local namespace=${no_verb%%-*}
+    local noun=${no_verb#*-}
+    BU_RET=${verb}-${noun}
+}
+
+bu_convert_file_to_command_namespace()
+{
+    local -r style=$1
+    local -r file_path=$2
+    case "$style" in
+    none|prefix-keep|powershell-keep) 
+        # -keep means don't throw away the namespace
+        # Currently, none, prefix-keep, powershell-keep are synonyms
+        # because no additional processing is done for prefix-keep and powershell-keep
+        bu_basename "$file_path"
+        BU_RET=${BU_RET%.sh}
+        ;;
+    prefix)
+        # Format namespace-verb-noun
+        bu_convert_file_to_command_prefix - "$file_path"
+        ;;
+    powershell)
+        # Format verb-namespace-noun
+        bu_convert_file_to_command_powershell "$file_path"
+        ;;
+    esac
+}
+
+bu_preinit_register_user_defined_subcommand_dir "$BU_BUILTIN_COMMANDS_DIR" bu_convert_file_to_command_namespace prefix
