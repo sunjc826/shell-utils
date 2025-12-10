@@ -1195,3 +1195,37 @@ bu_autocomplete_remaining()
     bu_autocomplete "$arg1"
 }
 
+# Read with a fixed set of autocompletions
+bu_read_word()
+{
+    BU_RET=
+    local reply_name=BU_RET
+    local read_args=()
+    while (($#))
+    do
+        case "$1" in
+        --prompt) read_args+=(-p "$2"); shift 2;;
+        --reply) reply_name=$2; shift 2;;
+        --) shift; break ; ;;
+        *) break ;;
+        esac
+    done
+    if (($# <= 100))
+    then
+        bu_mkdir "$BU_PROC_TMP_DIR"/read
+        rm -f "$BU_PROC_TMP_DIR"/read/*
+        pushd "$BU_PROC_TMP_DIR"/read &>/dev/null
+        touch "$@"
+    else
+        bu_log_warn "At most 100 autocompletions supported, no autocompletions will be generated"
+    fi
+    read_args+=("$reply_name")
+    read -e -r "${read_args[@]}"
+
+    if (($# <= 100))
+    then
+        rm -f "$BU_PROC_TMP_DIR"/read/*
+        popd &>/dev/null
+    fi
+}
+
