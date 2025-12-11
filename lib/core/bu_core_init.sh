@@ -91,7 +91,7 @@ __bu_init_vscode()
             else
                 bu_log_info vscode server not found
                 unset VSCODE_IPC_HOOK_CLI
-                if [[ VISUAL == code* || EDITOR == code* ]]
+                if [[ "$VISUAL" == code* || "$EDITOR" == code* ]]
                 then
                     export VISUAL=vim
                     export EDITOR=vim
@@ -100,7 +100,6 @@ __bu_init_vscode()
             fi
         fi
         export VSCODE_IPC_HOOK_CLI="$BU_OUT_DIR"/VSCODE_IPC_HOOK_CLI.sock
-        bu_log_debug VSCODE_IPC_HOOK_CLI=$VSCODE_IPC_HOOK_CLI
         if [[ -e "$BU_OUT_DIR"/vscode_server_instance/server/bin/remote-cli ]]
         then
             # Remote SSH

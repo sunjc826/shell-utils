@@ -708,6 +708,8 @@ __bu_autocomplete_completion_func_master_helper()
     local offset
     local shift_by
     local terminator
+    local should_restore_cwd=false
+    local original_cwd=$PWD
     local -a sub_args
     local -a opt_cur_word=("$cur_word")
     local exit_code=$BU_AUTOCOMPLETE_EXIT_CODE_SUCCESS
@@ -734,6 +736,11 @@ __bu_autocomplete_completion_func_master_helper()
             # i+1:script_path i+2:lineno
             __bu_autocomplete_compreply_append_options_at "${args[i+1]}" "${args[i+2]}"
             shift_by=3
+            ;;
+        --cwd)
+            should_restore_cwd=true
+            cd "${args[i+1]}"
+            shift_by=2
             ;;
         --sh|--enum|--stdout|--ret|--as-if)
             # Generic completion utilities
@@ -789,6 +796,11 @@ __bu_autocomplete_completion_func_master_helper()
         esac
         : $(( i += shift_by ))
     done
+
+    if "$should_restore_cwd"
+    then
+        cd "$original_cwd"
+    fi
     return "$exit_code"
 }
 
@@ -1229,3 +1241,9 @@ bu_read_word()
     fi
 }
 
+# These autocompletion specs come in useful pretty often
+
+BU_AUTOCOMPLETE_SPEC_DIRECTORY=(
+    --sh compopt -o filenames sh--
+    --stdout compgen -d stdout--
+)

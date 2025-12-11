@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-function __bu_bu_new_script_main()
+function __bu_bu_new_command_main()
 {
 set -e
 # Considering how slow WSL1 is, let's optimize a bit here too
@@ -180,4 +180,4 @@ bu_edit_file "$target" || true
 bu_scope_pop_function
 }
 
-__bu_bu_new_script_main "$@"
+__bu_bu_new_command_main "$@"

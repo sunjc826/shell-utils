@@ -18,8 +18,8 @@ declare -A -g BU_KEY_BINDINGS=(
 
 bu_preinit_register_user_defined_key_binding()
 {
-    local key=$1
-    local binding=$2
+    local -r key=$1
+    local -r binding=$2
     BU_KEY_BINDINGS[$key]=$binding
 }
 
@@ -34,9 +34,28 @@ bu_preinit_register_user_defined_completion_func()
     BU_AUTOCOMPLETE_COMPLETION_FUNCS[$completion_command]=$completion_func
 }
 
+# Map of command to script path / function
 declare -A -g BU_COMMANDS=()
+# Map of directory to convert_file_to_command
 declare -A -g BU_COMMAND_SEARCH_DIRS=()
+# Map of (<command>,<query>) to properties
+# The following queries are currently defined
+# - type 
+#   - Meaning: The type of Bash object implementing the command
+#   - Values: 
+#     - function: For Bash functions
+#     - execute: For executable Bash scripts
+#     - source: For non-executable Bash scripts meant to be sourced
+#     - <empty>: To be dynamically derived
+# - verb
+#   - Meaning: Breakdown of the command. The verb portion.
+# - noun
+#   - Meaning: Breakdown of the command. The noun portion.
+# - namespace
+#   - Meaning: Breakdown of the command. The namespace portion.
 declare -A -g BU_COMMAND_PROPERTIES=()
+declare -A -g BU_COMMAND_VERBS=()
+declare -A -g BU_COMMAND_NOUNS=()
 bu_preinit_register_user_defined_subcommand_dir()
 {
     local dir=$1
@@ -61,9 +80,9 @@ bu_preinit_register_user_defined_subcommand_dir()
 
 bu_preinit_register_user_defined_subcommand_file()
 {
-    local file=$1
+    local -r file=$1
     local command=$2
-    local properties=$3
+    local -r type=$3
 
     if [[ -z "$command" ]]
     then
@@ -74,17 +93,17 @@ bu_preinit_register_user_defined_subcommand_file()
 
     BU_COMMANDS[$command]=$file
 
-    if [[ -n "$properties" ]]
+    if [[ -n "$type" ]]
     then
-        BU_COMMAND_PROPERTIES[$command]=$properties
+        BU_COMMAND_PROPERTIES[$command,type]=$type
     fi
 }
 
 bu_preinit_register_user_defined_subcommand_function()
 {
-    local fn=$1
+    local -r fn=$1
     local command=$2
-    local properties=$3
+    local -r type=$3
 
     if [[ -z "$command" ]]
     then
@@ -93,9 +112,9 @@ bu_preinit_register_user_defined_subcommand_function()
 
     BU_COMMANDS[$command]=$file
 
-    if [[ -n "$properties" ]]
+    if [[ -n "$type" ]]
     then
-        BU_COMMAND_PROPERTIES[$command]=$properties
+        BU_COMMAND_PROPERTIES[$command,type]=$type
     fi
 }
 
@@ -104,21 +123,34 @@ bu_convert_file_to_command_prefix()
     local -r delimiter=$1
     local -r file_path=$2
     bu_basename "$file_path"
-    local file_base=$BU_RET
-    local file_base_no_ext=${file_base%.sh}
-    BU_RET=${file_base_no_ext#*$delimiter} # Don't quote prefix, we allow it to be a pattern
+    local -r file_base=$BU_RET
+    local -r file_base_no_ext=${file_base%.sh}
+    local -r no_namespace=${file_base_no_ext#*$delimiter} # Don't quote prefix, we allow it to be a pattern
+    local -r verb=${no_namespace%%-*}
+    local -r noun=${no_namespace#*-}
+    BU_COMMAND_VERBS[$verb]=1
+    BU_COMMAND_NOUNS[$noun]=1
+    local -r command=${verb}-${noun}
+    BU_COMMAND_PROPERTIES[$command,verb]=$verb
+    BU_COMMAND_PROPERTIES[$command,noun]=$noun
+    BU_RET=$command
 }
 
 bu_convert_file_to_command_powershell()
 {
     local -r file_path=$1
     bu_basename "$file_path"
-    local file_base_no_ext=${BU_RET%.sh}
-    local verb=${file_base_no_ext%%-*}
-    local no_verb=${file_base_no_ext#*-}
-    local namespace=${no_verb%%-*}
-    local noun=${no_verb#*-}
-    BU_RET=${verb}-${noun}
+    local -r file_base_no_ext=${BU_RET%.sh}
+    local -r verb=${file_base_no_ext%%-*}
+    local -r no_verb=${file_base_no_ext#*-}
+    local -r namespace=${no_verb%%-*}
+    local -r noun=${no_verb#*-}
+    BU_COMMAND_VERBS[$verb]=1
+    BU_COMMAND_NOUNS[$noun]=1
+    local -r command=${verb}-${noun}
+    BU_COMMAND_PROPERTIES[$command,verb]=$verb
+    BU_COMMAND_PROPERTIES[$command,noun]=$noun
+    BU_RET=$command
 }
 
 bu_convert_file_to_command_namespace()
