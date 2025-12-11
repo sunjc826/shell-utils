@@ -30,7 +30,10 @@ bu_run_log_command "$@"
 
 local verb_filter=
 local noun_filter=
-local is_allow_empty=false
+local namespace_filter=
+local is_allow_empty_verb=false
+local is_allow_empty_noun=false
+local is_allow_empty_namespace=false
 local is_help=false
 local error_msg=
 local options_finished=false
@@ -45,13 +48,27 @@ do
         bu_parse_positional $# --enum "${!BU_COMMAND_VERBS[@]}" enum--
         verb_filter=${!shift_by}
         ;;
+    +v|--allow-empty-verb)
+        # If a command has no associated verb, it is also included in the results
+        is_allow_empty_verb=true
+        ;;
     -n|--noun)
         # Glob pattern to filter by noun
         bu_parse_positional $# --enum "${!BU_COMMAND_NOUNS[@]}" enum--
         noun_filter=${!shift_by}
         ;;
-    --allow-empty)
-        is_allow_empty=true
+    +n|--allow-empty-noun)
+        # If a command has no associated noun, it is also included in the results
+        is_allow_empty_noun=true
+        ;;
+    -ns|--namespace)
+        # Glob pattern to filter by namespace
+        bu_parse_positional $# --enum "${!BU_COMMAND_NAMESPACES[@]}" enum--
+        namespace_filter=${!shift_by}
+        ;;
+    +ns|--allow-empty-namespace)
+        # If a command has no associated namespace, it is also included in the results
+        is_allow_empty_namespace=true
         ;;
     --)
         # Remaining options will be collected
@@ -91,6 +108,7 @@ fi
 local command
 local command_verb
 local command_noun
+local command_namespace
 
 local filtered_commands=()
 
@@ -99,10 +117,8 @@ do
     if [[ -n "$verb_filter" ]]
     then
         command_verb=${BU_COMMAND_PROPERTIES[$command,verb]}
-        if { [[ -z "$command_verb" ]] && "$is_allow_empty" ; } || [[ "$command_verb" == $verb_filter ]]
+        if ! { [[ -z "$command_verb" ]] && "$is_allow_empty_verb" ; } || [[ "$command_verb" == $verb_filter ]]
         then
-            :
-        else
             continue
         fi
     fi
@@ -110,10 +126,17 @@ do
     if [[ -n "$noun_filter" ]]
     then
         command_noun=${BU_COMMAND_PROPERTIES[$command,noun]}
-        if { [[ -z "$command_noun" ]] && "$is_allow_empty" ; } || [[ "$command_noun" == $noun_filter ]]
+        if ! { [[ -z "$command_noun" ]] && "$is_allow_empty_noun" ; } || [[ "$command_noun" == $noun_filter ]]
         then
-            :
-        else
+            continue
+        fi
+    fi
+
+    if [[ -n "$namespace_filter" ]]
+    then
+        command_namespace=${BU_COMMAND_PROPERTIES[$command,namespace]}
+        if ! { [[ -z "$command_namespace" ]] && "$is_allow_empty_namespace" ; } || [[ "$command_namespace" == $namespace_filter ]]
+        then
             continue
         fi
     fi

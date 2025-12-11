@@ -114,6 +114,11 @@ declare -A -g BU_COMMAND_VERBS=()
 # Note: This is an associative array, thus to get all nouns, do `${!BU_COMMAND_NOUNS[@]}`
 # ```
 declare -A -g BU_COMMAND_NOUNS=()
+# ```
+# Set of all parsed namespaces from the bu command list
+# Note: This is an associative array, thus to get all nouns, do `${!BU_COMMAND_NAMESPACE[@]}`
+# ```
+declare -A -g BU_COMMAND_NAMESPACES=()
 
 # ```
 # *Description*:
@@ -267,14 +272,17 @@ bu_convert_file_to_command_prefix()
     bu_basename "$file_path"
     local -r file_base=$BU_RET
     local -r file_base_no_ext=${file_base%.sh}
+    local -r namespace=${file_base_no_ext%%$delimiter*}
     local -r no_namespace=${file_base_no_ext#*$delimiter} # Don't quote prefix, we allow it to be a pattern
     local -r verb=${no_namespace%%-*}
     local -r noun=${no_namespace#*-}
     BU_COMMAND_VERBS[$verb]=1
     BU_COMMAND_NOUNS[$noun]=1
+    BU_COMMAND_NAMESPACES[$namespace]=1
     local -r command=${verb}-${noun}
     BU_COMMAND_PROPERTIES[$command,verb]=$verb
     BU_COMMAND_PROPERTIES[$command,noun]=$noun
+    BU_COMMAND_PROPERTIES[$command,namespace]=$namespace
     BU_RET=$command
 }
 
@@ -310,9 +318,11 @@ bu_convert_file_to_command_powershell()
     local -r noun=${no_verb#*-}
     BU_COMMAND_VERBS[$verb]=1
     BU_COMMAND_NOUNS[$noun]=1
+    BU_COMMAND_NAMESPACES[$namespace]=1
     local -r command=${verb}-${noun}
     BU_COMMAND_PROPERTIES[$command,verb]=$verb
     BU_COMMAND_PROPERTIES[$command,noun]=$noun
+    BU_COMMAND_PROPERTIES[$command,namespace]=$namespace
     BU_RET=$command
 }
 

@@ -107,7 +107,7 @@ bu_autocomplete_def_compopt
 
 # MARK: Parsers
 __BU_AUTOCOMPLETE_WORKING_DIRECTORY=.
-__BU_AUTOCOMPLETE_OPTION_REGEX='([-[:alnum:]_/]+[[:space:]]*\|?[[:space:]]*)*[-[:alnum:]_/]+[[:space:]]*'
+__BU_AUTOCOMPLETE_OPTION_REGEX='([-\+[:alnum:]_/]+[[:space:]]*\|?[[:space:]]*)*[-\+[:alnum:]_/]+[[:space:]]*'
 
 # ```
 # *Description*:
