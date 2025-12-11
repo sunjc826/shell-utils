@@ -7,7 +7,11 @@ source "$BU_NULL"
 # shellcheck source=./bu_core_cli.sh
 source "$BU_NULL"
 
-# Quote the value to get Go-To Definition working in bash-language-server
+# Double quote the value to get Go-To Definition working in bash-language-server
+
+# ```
+# This mapping will be passed directly to `bind -x`
+# ```
 declare -A -g BU_KEY_BINDINGS=(
     ['\ee']="__bu_bind_edit"
     ['\eg']="__bu_bind_toggle_gdb"
@@ -23,6 +27,9 @@ bu_preinit_register_user_defined_key_binding()
     BU_KEY_BINDINGS[$key]=$binding
 }
 
+# ```
+# This mapping will be passed directly to `complete -F`
+# ```
 declare -A -g BU_AUTOCOMPLETE_COMPLETION_FUNCS=(
     [$BU_CLI_COMMAND_NAME]="__bu_autocomplete_completion_func_cli"
 )
@@ -34,10 +41,15 @@ bu_preinit_register_user_defined_completion_func()
     BU_AUTOCOMPLETE_COMPLETION_FUNCS[$completion_command]=$completion_func
 }
 
+# ```
 # Map of command to script path / function
+# ```
 declare -A -g BU_COMMANDS=()
+# ```
 # Map of directory to convert_file_to_command
+# ```
 declare -A -g BU_COMMAND_SEARCH_DIRS=()
+# ```
 # Map of (<command>,<query>) to properties
 # The following queries are currently defined
 # - type 
@@ -53,6 +65,7 @@ declare -A -g BU_COMMAND_SEARCH_DIRS=()
 #   - Meaning: Breakdown of the command. The noun portion.
 # - namespace
 #   - Meaning: Breakdown of the command. The namespace portion.
+# ```
 declare -A -g BU_COMMAND_PROPERTIES=()
 declare -A -g BU_COMMAND_VERBS=()
 declare -A -g BU_COMMAND_NOUNS=()
