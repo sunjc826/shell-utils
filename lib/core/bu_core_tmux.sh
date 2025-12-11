@@ -1,6 +1,29 @@
 # shellcheck source=./bu_core_base.sh
 source "$BU_NULL"
 
+# ```
+# *Description*:
+# Internal function to resolve tmux split mode into tmux command arguments
+#
+# *Params*:
+# - `$1`: Split mode (one of `none`, `vertical`, `horizontal`)
+#
+# *Returns*:
+# - Exit code 0 on success, 1 if split mode is invalid
+# - `${BU_RET[@]}`: Array containing the tmux command with arguments to create a new pane/window
+#
+# *Examples*:
+# ```bash
+# __bu_spawn_tmux_resolve_split_mode vertical
+# # $BU_RET contains: (tmux split-window -vd -t $TMUX_PANE -P -F '#{pane_id}' bash --init-file)
+# ```
+#
+# *Notes*:
+# - `none` creates a new window in a new tmux session
+# - `vertical` splits the current pane vertically
+# - `horizontal` splits the current pane horizontally
+# - Returns pane ID using stable format `#{pane_id}` instead of window index
+# ```
 __bu_spawn_tmux_resolve_split_mode()
 {
     local split_mode=$1

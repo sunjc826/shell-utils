@@ -40,6 +40,32 @@ bu_mkdir()
     fi
 }
 
+# ```
+# *Description*:
+# Convert a path to an absolute path without resolving symlinks
+#
+# *Params*:
+# - `$1`: Path to convert (relative or absolute)
+# - `$2` (optional): Base directory for resolving relative paths (default: `$PWD`)
+#
+# *Returns*:
+# - `$BU_RET`: The absolute path
+#
+# *Examples*:
+# ```bash
+# bu_realpath /tmp/file  # $BU_RET=/tmp/file
+# bu_realpath ../dir  # $BU_RET=$PWD/../dir
+# bu_realpath dir /home/user  # $BU_RET=/home/user/dir
+# ```
+#
+# *Notes*:
+# - Does not resolve symlinks (use the builtin `realpath` command for that)
+# - Simply converts relative paths to absolute paths
+# - Removes leading `./` from relative paths before appending to base directory
+# - Returns absolute paths unchanged
+# - Does not simplify ..
+# - No forking is needed as compared to realpath
+# ```
 bu_realpath()
 {
     local -r dir=$1
@@ -2551,6 +2577,26 @@ __bu_cycle_logs()
     popd &>/dev/null
 }
 
+# ```
+# *Description*:
+# Log the current command to the last run commands history file
+#
+# *Params*:
+# - `...`: Arguments to log (typically `$@` from the calling function)
+#
+# *Returns*: None
+#
+# *Examples*:
+# ```bash
+# bu_run_log_command "$@"
+# ```
+#
+# *Notes*:
+# - Does nothing if called from autocomplete context to avoid spam
+# - Writes to `$BU_LAST_RUN_CMDS` file
+# - The file will get trimmed if it gets too long
+# - The command will be logged as: `<calling_script_name> <arguments>`
+# ```
 bu_run_log_command()
 {
     if bu_env_is_in_autocomplete
@@ -2563,9 +2609,34 @@ bu_run_log_command()
     bu_scope_add_cleanup bu_sync_cycle_last_run_cmds
 }
 
+# ```
+# *Description*:
+# Edit one or more files with the configured editor
+#
+# *Params*:
+# - `...`: File paths to edit
+#
+# *Returns*: None
+#
+# *Examples*:
+# ```bash
+# bu_edit_file /path/to/file1.txt
+# bu_edit_file /path/to/file1.txt /path/to/file2.txt
+# ```
+#
+# *Notes*:
+# - Uses `$VISUAL` or `$EDITOR` environment variables to determine the editor
+# - Supports special handling for VS Code (both `code` and `bu_code_wait.sh`)
+# - Falls back to VS Code (if available) or vim if no editor is configured
+# ```
 bu_edit_file()
 {
     local files=("$@")
+    if ((!$#))
+    then
+        bu_log_warn 'No files given'
+        return
+    fi
     local editor=${VISUAL:-$EDITOR}
     case "$editor" in
     *'bu_code_wait.sh'|'code '*)
@@ -2585,6 +2656,25 @@ bu_edit_file()
     esac
 }
 
+# ```
+# *Description*:
+# Open a log file with the configured editor or viewer
+#
+# *Params*:
+# - `$1`: Log file path to open
+#
+# *Returns*: None
+#
+# *Examples*:
+# ```bash
+# bu_run_open_logs /path/to/logfile.log
+# ```
+#
+# *Notes*:
+# - Uses `$VISUAL` or `$EDITOR` environment variables to determine the editor/viewer
+# - Supports special handling for VS Code (both `code` and `bu_code_wait.sh`)
+# - Falls back to VS Code (if available) or `less` if no editor is configured
+# ```
 bu_run_open_logs()
 {
     local log_file=$1
