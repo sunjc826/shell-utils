@@ -32,7 +32,7 @@ __bu_cli_command_properties()
         # Also accept non bu command
         function_or_script_path=$bu_command
     fi
-    local properties="${BU_COMMAND_PROPERTIES[$bu_command]}"
+    local properties="${BU_COMMAND_PROPERTIES[$bu_command,type]}"
     if [[ -z "$properties" ]]
     then
         if bu_symbol_is_function "$function_or_script_path"
