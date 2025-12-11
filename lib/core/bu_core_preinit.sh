@@ -344,10 +344,23 @@ bu_convert_file_to_command_namespace()
     local -r style=$1
     local -r file_path=$2
     case "$style" in
-    none|prefix-keep|powershell-keep) 
+    none)
+        bu_basename "$file_path"
+        BU_RET=${BU_RET%.sh}
+        ;;
+    prefix-keep)
         # -keep means don't throw away the namespace
-        # Currently, none, prefix-keep, powershell-keep are synonyms
-        # because no additional processing is done for prefix-keep and powershell-keep
+        bu_convert_file_to_command_prefix - "$file_path"
+        # We only need to do some processing of the other bookkeeping variables
+        # Otherwise, we don't change the command name
+        bu_basename "$file_path"
+        BU_RET=${BU_RET%.sh}
+        ;;
+    powershell-keep)
+        # -keep means don't throw away the namespace
+        # We only need to do some processing of the other bookkeeping variables
+        # Otherwise, we don't change the command name
+        bu_convert_file_to_command_powershell "$file_path"
         bu_basename "$file_path"
         BU_RET=${BU_RET%.sh}
         ;;
@@ -358,6 +371,10 @@ bu_convert_file_to_command_namespace()
     powershell)
         # Format verb-namespace-noun
         bu_convert_file_to_command_powershell "$file_path"
+        ;;
+    *)
+        bu_log_err "Invalid naming style[$style]"
+        return 1
         ;;
     esac
 }
