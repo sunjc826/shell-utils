@@ -117,7 +117,7 @@ do
     if [[ -n "$verb_filter" ]]
     then
         command_verb=${BU_COMMAND_PROPERTIES[$command,verb]}
-        if ! { [[ -z "$command_verb" ]] && "$is_allow_empty_verb" ; } || [[ "$command_verb" == $verb_filter ]]
+        if ! { { [[ -z "$command_verb" ]] && "$is_allow_empty_verb" ; } || [[ "$command_verb" == $verb_filter ]] ; }
         then
             continue
         fi
@@ -126,7 +126,7 @@ do
     if [[ -n "$noun_filter" ]]
     then
         command_noun=${BU_COMMAND_PROPERTIES[$command,noun]}
-        if ! { [[ -z "$command_noun" ]] && "$is_allow_empty_noun" ; } || [[ "$command_noun" == $noun_filter ]]
+        if ! { { [[ -z "$command_noun" ]] && "$is_allow_empty_noun" ; } || [[ "$command_noun" == $noun_filter ]] ; }
         then
             continue
         fi
@@ -135,7 +135,7 @@ do
     if [[ -n "$namespace_filter" ]]
     then
         command_namespace=${BU_COMMAND_PROPERTIES[$command,namespace]}
-        if ! { [[ -z "$command_namespace" ]] && "$is_allow_empty_namespace" ; } || [[ "$command_namespace" == $namespace_filter ]]
+        if ! { { [[ -z "$command_namespace" ]] && "$is_allow_empty_namespace" ; } || [[ "$command_namespace" == $namespace_filter ]] ; }
         then
             continue
         fi
