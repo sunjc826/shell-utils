@@ -41,7 +41,7 @@ local autocompletion=()
 local shift_by=
 while (($#))
 do
-    bu_parse_multiselect
+    bu_parse_multiselect $# "$1"
     case "$1" in
     -v|--verb)
         # Glob pattern to filter by verb

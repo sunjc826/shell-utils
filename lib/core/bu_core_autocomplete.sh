@@ -396,6 +396,14 @@ bu_parse_multiselect()
         return
     fi
 
+    local num_args=$1
+    local arg1=$2
+    shift 2
+    if bu_env_is_in_autocomplete && ((num_args > 1))
+    then
+        bu_parsed_multiselect_arguments[$arg1]=1
+    fi
+
     autocompletion=(--options-at "${BASH_SOURCE[1]}" "${BASH_LINENO[0]}" "$@")
     shift_by=1
     : $((__bu_g_shift_by++))
@@ -405,7 +413,7 @@ bu_parse_positional()
 {
     local num_args=$1
     shift
-    if (( shift_by >= "$num_args" ))
+    if (( shift_by >= num_args ))
     then
         return
     fi
@@ -610,39 +618,7 @@ bu_compgen()
     bu_stdout_to_ret --lines -o COMPREPLY compgen "$@"
 }
 
-# ```
-# *Description*:
-# Appends options parsed from the first occurring case block of the file/function to `${COMPREPLY[@]}`
-#
-# *Params*:
-# - `function_or_script_path`: Path to the function or script to parse options from
-#
-# *Returns*:
-# - `${COMPREPLY[@]}`: Original contents plus new options
-# ```
-__bu_autocomplete_compreply_append_options_of()
-{
-    local function_or_script_path=$1
-    COMPREPLY+=($(bu_autocomplete_parse_case_block_options "$function_or_script_path"))
-}
 
-# ```
-# *Description*:
-# Appends options parsed from the case block following the given line number of the file to `${COMPREPLY[@]}`
-#
-# *Params*:
-# - `$1`: Path to the script to parse options from
-# - `$2`: Line number of the case block to parse options from
-#
-# *Returns*:
-# - `${COMPREPLY[@]}`: Original contents plus new options
-# ```
-__bu_autocomplete_compreply_append_options_at()
-{
-    local script_path=$1
-    local script_lineno=$2
-    COMPREPLY+=($(bu_autocomplete_parse_case_block_options "$script_path" "" "" "$script_lineno"))
-}
 
 __bu_autocomplete_compreply_append_find_files()
 {
@@ -710,8 +686,12 @@ __bu_autocomplete_completion_func_master_helper()
     local terminator
     local should_restore_cwd=false
     local original_cwd=$PWD
+    local script_path
+    local script_lineno
+    local option
     local -a sub_args
     local -a opt_cur_word=("$cur_word")
+    local BU_RET
     local exit_code=$BU_AUTOCOMPLETE_EXIT_CODE_SUCCESS
     while ((i<${#args[@]}))
     do
@@ -727,15 +707,49 @@ __bu_autocomplete_completion_func_master_helper()
         +c|--no-append-cur-word)
             opt_cur_word=()
             ;;
-        --options-of)
-            # i+1:function_or_script_path
-            __bu_autocomplete_compreply_append_options_of "${args[i+1]}"
-            shift_by=2
-            ;;
-        --options-at)
-            # i+1:script_path i+2:lineno
-            __bu_autocomplete_compreply_append_options_at "${args[i+1]}" "${args[i+2]}"
-            shift_by=3
+        --options-of|--options-at)
+            script_path=${args[i+1]}
+            case "${args[i]}" in
+            --options-of) 
+                script_lineno= 
+                shift_by=2
+                ;;
+            --options-at) 
+                script_lineno=${args[i+2]}
+                shift_by=3
+                ;;
+            esac
+            # bu_print_var bu_parsed_multiselect_arguments >/dev/tty
+            while read -r -a BU_RET
+            do
+                # Some heuristics:
+                # If ${BU_RET[@]} is of length 2, and one of them is short-form, and the other is long-form
+                # e.g. -d --dir
+                # then having either the long-form or the short-form will suffice in ruling out the other.
+                if ((${#BU_RET[@]} == 2)) &&
+                    [[
+                        (
+                            (${BU_RET[0]} == [-+][^-]* && ${BU_RET[1]} == --*) ||
+                            (${BU_RET[1]} == [-+][^-]* && ${BU_RET[0]} == --*)
+                        ) && 
+                        (
+                            "${bu_parsed_multiselect_arguments[${BU_RET[0]}]}" = 1 ||
+                            "${bu_parsed_multiselect_arguments[${BU_RET[1]}]}" = 1
+                        )
+                    ]]
+                then
+                    continue
+                fi
+                # Otherwise, we don't assume that options on the same line mean the same thing
+                # In this case, we will only leave out the exact options that have been parsed
+                # TODO: Handle the case where an option is allowed to be given more than once.
+                for option in "${BU_RET[@]}"; do
+                    case "${bu_parsed_multiselect_arguments[$option]}" in
+                    '') COMPREPLY+=("$option") ;;
+                    1) continue ;;
+                    esac
+                done
+            done < <(bu_autocomplete_parse_case_block_options "$script_path" "" "" "$script_lineno")
             ;;
         --cwd)
             should_restore_cwd=true
@@ -839,6 +853,7 @@ __bu_autocomplete_completion_func_master_impl()
     )
     COMPREPLY=()
     local lazy_autocomplete_args=()
+    local -A -g bu_parsed_multiselect_arguments=()
     # bu_log_tty reached0
     if builtin source "${processed_comp_words[@]}" &>/dev/null
     then
@@ -847,10 +862,11 @@ __bu_autocomplete_completion_func_master_impl()
     # bu_log_tty reached3
     # Scripts might set -e, and because we are sourcing them, we unset it
     set +ex
-
+    # bu_log_tty lazy_autocomplete_args="${lazy_autocomplete_args[*]}"
     __bu_autocomplete_completion_func_master_helper "$completion_command_path" "$cur_word" "$prev_word" "${lazy_autocomplete_args[@]}"
     local exit_code=$?
 
+    # bu_log_tty "COMPREPLY=${COMPREPLY[*]}"
     bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
     if ((exit_code == "$BU_AUTOCOMPLETE_EXIT_CODE_RETRY"))
     then

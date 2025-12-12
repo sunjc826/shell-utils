@@ -42,7 +42,7 @@ local shift_by=
 # bu_log_tty reached1
 while (($#))
 do
-    bu_parse_multiselect
+    bu_parse_multiselect $# "$1"
     case "$1" in
     -d|--dir)
         # Directory that the script should be placed in
