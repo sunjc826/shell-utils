@@ -576,6 +576,7 @@ __bu_log()
 # Assert an error condition
 #
 # *Params*:
+# - `-i|--idx <index>` (optional): Stacktrace index offset for the logging context
 # - `...`: Error message
 #
 # *Returns*:
@@ -586,7 +587,7 @@ __bu_log()
 # ```
 bu_assert_err()
 {
-    __bu_log "$BU_TPUT_RED" "$BU_LOG_LVL_ERR" ERR "$*"
+    __bu_log "$BU_TPUT_RED" "$BU_LOG_LVL_ERR" ERR "$@"
     false
 }
 
@@ -595,11 +596,12 @@ bu_assert_err()
 # Log an error message
 #
 # *Params*:
+# - `-i|--idx <index>` (optional): Stacktrace index offset for the logging context
 # - `...`: Log message
 # ```
 bu_log_err()
 {
-    __bu_log "$BU_TPUT_RED" "$BU_LOG_LVL_ERR" ERR "$*"
+    __bu_log "$BU_TPUT_RED" "$BU_LOG_LVL_ERR" ERR "$@"
 }
 
 # ```
@@ -607,11 +609,12 @@ bu_log_err()
 # Log a warning message
 #
 # *Params*:
+# - `-i|--idx <index>` (optional): Stacktrace index offset for the logging context
 # - `...`: Log message
 # ```
 bu_log_warn() 
 {
-    __bu_log "$BU_TPUT_YELLOW" "$BU_LOG_LVL_WARN" WARN "$*"
+    __bu_log "$BU_TPUT_YELLOW" "$BU_LOG_LVL_WARN" WARN "$@"
 }
 
 # ```
@@ -619,11 +622,12 @@ bu_log_warn()
 # Log an informational message
 #
 # *Params*:
+# - `-i|--idx <index>` (optional): Stacktrace index offset for the logging context
 # - `...`: Log message
 # ```
 bu_log_info() 
 { 
-    __bu_log "$BU_TPUT_BLUE" "$BU_LOG_LVL_INFO" INFO "$*"
+    __bu_log "$BU_TPUT_BLUE" "$BU_LOG_LVL_INFO" INFO "$@"
 }
 
 # ```
@@ -631,11 +635,12 @@ bu_log_info()
 # Log a debug message
 #
 # *Params*:
+# - `-i|--idx <index>` (optional): Stacktrace index offset for the logging context
 # - `...`: Log message
 # ```
 bu_log_debug()
 { 
-    __bu_log "$BU_TPUT_VIOLET" "$BU_LOG_LVL_DEBUG" DEBUG "$*"
+    __bu_log "$BU_TPUT_VIOLET" "$BU_LOG_LVL_DEBUG" DEBUG "$@"
 }
 
 # ```
@@ -643,6 +648,7 @@ bu_log_debug()
 # Log a success message
 #
 # *Params*:
+# - `-i|--idx <index>` (optional): Stacktrace index offset for the logging context
 # - `...`: Log message
 # ```
 bu_log_success()
@@ -729,11 +735,12 @@ __bu_log_cmd()
 # Log an error command message
 #
 # *Params*:
+# - `-i|--idx <index>` (optional): Stacktrace index offset for the logging context
 # - `...`: Command to execute
 # ```
 bu_log_cmd_err()
 {
-    __bu_log_cmd "$BU_TPUT_RED" "$BU_LOG_LVL_ERR" ERR "$*"
+    __bu_log_cmd "$BU_TPUT_RED" "$BU_LOG_LVL_ERR" ERR "$@"
 }
 
 # ```
@@ -741,11 +748,12 @@ bu_log_cmd_err()
 # Log a warning command message
 #
 # *Params*:
+# - `-i|--idx <index>` (optional): Stacktrace index offset for the logging context
 # - `...`: Command to execute
 # ```
 bu_log_cmd_warn()
 {
-    __bu_log_cmd "$BU_TPUT_YELLOW" "$BU_LOG_LVL_WARN" WARN "$*"
+    __bu_log_cmd "$BU_TPUT_YELLOW" "$BU_LOG_LVL_WARN" WARN "$@"
 }
 
 # ```
@@ -753,11 +761,12 @@ bu_log_cmd_warn()
 # Log an informational command message
 #
 # *Params*:
+# - `-i|--idx <index>` (optional): Stacktrace index offset for the logging context
 # - `...`: Command to execute
 # ```
 bu_log_cmd_info()
 {
-    __bu_log_cmd "$BU_TPUT_BLUE" "$BU_LOG_LVL_INFO" INFO "$*"
+    __bu_log_cmd "$BU_TPUT_BLUE" "$BU_LOG_LVL_INFO" INFO "$@"
 }
 
 # ```
@@ -765,11 +774,12 @@ bu_log_cmd_info()
 # Log a debug command message
 #
 # *Params*:
+# - `-i|--idx <index>` (optional): Stacktrace index offset for the logging context
 # - `...`: Command to execute
 # ```
 bu_log_cmd_debug()
 {
-    __bu_log_cmd "$BU_TPUT_VIOLET" "$BU_LOG_LVL_DEBUG" DEBUG "$*"
+    __bu_log_cmd "$BU_TPUT_VIOLET" "$BU_LOG_LVL_DEBUG" DEBUG "$@"
 }
 
 # ```
