@@ -702,6 +702,10 @@ __bu_autocomplete_completion_func_master_helper()
             # Explicit literal
             COMPREPLY+=("${args[idx]:1}")
             ;;
+        --hint)
+            bu_autocomplete_hint=${args[i+1]}
+            shift_by=2
+            ;;
         -c|--append-cur-word)
             opt_cur_word=("$cur_word")
             ;;
@@ -854,6 +858,7 @@ __bu_autocomplete_completion_func_master_impl()
         "${comp_words[@]:1:comp_cword}"
     )
     COMPREPLY=()
+    local bu_autocomplete_hint
     local lazy_autocomplete_args=()
     local -A -g bu_parsed_multiselect_arguments=()
     # bu_log_tty reached0
@@ -869,7 +874,16 @@ __bu_autocomplete_completion_func_master_impl()
     local exit_code=$?
 
     # bu_log_tty "COMPREPLY=${COMPREPLY[*]}"
-    bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
+    if ((${#COMPREPLY[@]}))
+    then
+        bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
+    elif [[ -n "$bu_autocomplete_hint" ]]
+    then
+        compopt -o nosort # Bash 4.4+
+        # https://stackoverflow.com/questions/70538848/simulate-bashs-compreply-response-without-actually-completing-it
+        # Add an invisible element
+        COMPREPLY=("Hint: $bu_autocomplete_hint" $'\xC2\xA0')
+    fi
     if ((exit_code == "$BU_AUTOCOMPLETE_EXIT_CODE_RETRY"))
     then
         compopt -o nospace

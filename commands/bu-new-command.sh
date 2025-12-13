@@ -53,7 +53,7 @@ do
         ;;
     -n|--name)
         # Name of the script, can be given without the ${BU_TPUT_BOLD}.sh${BU_TPUT_RESET} suffix
-        bu_parse_positional $#
+        bu_parse_positional $# --hint "Name of the script (.sh suffix is optional)"
         name=${!shift_by}
         ;;
     -f|--force)
