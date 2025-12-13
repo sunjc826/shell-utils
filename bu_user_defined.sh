@@ -1,6 +1,9 @@
 # shellcheck source=./bu_custom_source.sh
 source "$BU_NULL"
 
+# shellcheck source=./bu_user_defined_decl.sh
+source "$BU_NULL"
+
 # ```
 # *Description*:
 # Sources user defined configuration callback scripts.
@@ -105,7 +108,7 @@ bu_user_defined_autocomplete_lazy()
     BU_RET=0
     for fn in "${BU_USER_DEFINED_AUTOCOMPLETE_HELPERS[@]}"
     do
-        fn "$@"
+        "$fn" "$@"
         fn_exit_code=$?
         case "$fn_exit_code" in
         0|124)
