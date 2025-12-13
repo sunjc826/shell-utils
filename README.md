@@ -6,7 +6,8 @@ Shell-utils is a scripting framework for Bash.
 When comparing against other Bash frameworks, it does *not*
 - Convert a DSL script specification into a Bash script parser.
 - Provide a package manager or module system: I.e. no special `import`/`load` function or command.
-In general, DSL is avoided and we stay 100% in Bash.
+
+In general, DSL is avoided and we stay 100% in Bash-land (though implementation-wise awk is used to parse the Bash case-esac block).
 
 Features:
 - Work well with language servers, such that Go-To definition, code complete suggestions work.
@@ -15,6 +16,7 @@ Features:
   - Lazy: High performance
   - Instant: No script compilation phase, modify the script and instantly see the completion suggestions change by hitting TAB
   - Arbitrary: Run any Bash command you'd like to generate autocompletions. This is a weakness of DSL command-line specifications if there is some autocompletion rule that falls outside what they are coded to handle.
+  - Accurate: Because script parse and autocomplete together. There are also some niceties like single-use short/long-form options don't appear in suggestions after they are used.
 - Correctness: C++ RAII-like state management using a scope stack
 - Performant (in Bash terms)
   - Avoiding forking as much as possible in the fast path.
