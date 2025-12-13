@@ -179,6 +179,7 @@ bu_autocomplete_parse_case_block_options()
     BEGIN {
         is_start = 0
         is_in_option = 0
+        case_count = 0
     }
     NR < '"$start_lineno"' { next }
     ! is_start && '"$start_indicator"' {
@@ -206,7 +207,15 @@ bu_autocomplete_parse_case_block_options()
         is_in_option = 1
     }
 
-    is_in_option && /.*;;[[:space:]]*$/ {
+    is_in_option && /[[:space:]]*case .* in[[:space:]]*/ {
+        ++case_count;
+    }
+
+    is_in_option && /[[:space:]]*esac[[:space:]]*/ {
+        --case_count;
+    }
+
+    is_in_option && !case_count && /.*;;[[:space:]]*$/ {
         is_in_option = 0
     }
 
@@ -281,15 +290,18 @@ EOF
             fi |\
             awk '
             BEGIN {
-                is_start = 0
                 start_row = 0
+                case_count = 0
             }
             '"$start_indicator"' {
-                is_start = 1
-                start_row = NR
+                ++case_count;
+                # Ignore nested cases
+                if (case_count == 1) {
+                    start_row = NR
+                }
             }
             '"$end_indicator"' {
-                is_start = 0
+                --case_count;
             }
             NR == '"$end_lineno"' {
                 print start_row
@@ -298,6 +310,8 @@ EOF
             '
         )
     fi
+
+    bu_log_debug "end_lineno[$end_lineno] start_row[$start_row]"
 
     if bu_symbol_is_function "$function_or_script_path"
     then
@@ -318,6 +332,8 @@ EOF
         state = 0
         is_in_option = 0
         is_in_documentation = 0
+
+        case_count = 0
     }
     
     ! is_start { next }
@@ -380,7 +396,15 @@ EOF
         }
     }
 
-    state == post_documentation && /.*;;[[:space:]]*$/ {
+    state == post_documentation && /[[:space:]]*case .* in[[:space:]]*/ {
+        ++case_count;
+    }
+
+    state == post_documentation && /[[:space:]]*esac[[:space:]]*/ {
+        --case_count;
+    }
+
+    state == post_documentation && !case_count && /.*;;[[:space:]]*$/ {
         # print "# 5"
         state = outside
     }

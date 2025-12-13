@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 function __bu_bu_get_command_main()
 {
-# Considering how slow WSL1 is, let's optimize a bit here too
 local -r invocation_dir=$PWD
 local script_name
 local script_dir

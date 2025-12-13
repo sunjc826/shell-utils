@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+case "${BASH_SOURCE}" in
+*/*) pushd "${BASH_SOURCE%/*}" &>/dev/null ;; # Enter the current directory
+*) pushd . &>/dev/null ;; # This seems like duplicate work but we need to match the popd later
+esac
+
+case "$1" in
+-e|--example|--examples)
+    source ./bu_examples_entrypoint.sh
+    ;;
+-t|--test|--tests)
+    source ./bu_test_entrypoint.sh
+    ;;
+'')
+    source ./bu_entrypoint.sh
+    ;;
+*)
+    echo "Unsupported activate param[$1]" >&2
+    popd &>/dev/null
+    return 1
+    ;;
+esac
+
+popd &>/dev/null
+
