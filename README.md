@@ -110,3 +110,19 @@ Another point of customization are the pre-init functions. They are found in [bu
   - Params: `$1` = alias name, `$2..` = alias spec (see `bu_preinit_register_new_alias` for syntax rules).
   - Example: `bu_preinit_register_new_alias gc get-command --namespace {} {?} --verb {} {?} --noun {} {...}`
 
+
+### Tests
+Unit tests are only for the more basic functions. Tests are run with the BATS framework.
+Run this:
+```sh
+# If bats submodules are not initialized, initialize them
+git submodule update --init
+
+# This will place the bats binary on PATH.
+source ./bu_test_entrypoint.sh
+
+bats --jobs "$((($(nproc) + 1) / 2))" ./test/test.bats
+
+# Alternatively
+./test/test.bats # Hardcoded to use 16 jobs
+```
