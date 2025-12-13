@@ -3,6 +3,74 @@
 
 # shellcheck source=../core/bu_core_autocomplete.sh
 source "$BU_NULL"
+__bu_impl_process_alias()
+{
+    local -r bu_alias_spec=($1)
+    shift
+
+    local -r bu_command=${bu_alias_spec[0]}
+    local -r function_or_script_path=${BU_COMMANDS[$bu_command]}
+
+    local exit_code=0
+
+    local resolved_options=()
+
+    local i=0
+    local arg
+    for arg in "${bu_alias_spec[@]:1}"
+    do
+        case "$arg" in
+        '{?}')
+            if ((!$#))
+            then
+                break
+            fi
+            ;;
+        '{}')
+            resolved_options+=("$1")
+            if ((!$#))
+            then
+                bu_log_err "Insufficient arguments provided to satisfy ${BU_TPUT_BOLD}${BU_CLI_COMMAND_NAME} ${bu_alias_spec[*]:0:i+1} ${BU_TPUT_UNDERLINE}{REQUIRED}${BU_TPUT_NO_UNDERLINE} ${bu_alias_spec[*]:i+2}${BU_TPUT_RESET}"
+                return 1
+            fi
+            shift
+            ;;
+        '{...}')
+            resolved_options+=("$@")
+            shift $#
+            ;;
+        *)
+            resolved_options+=("$arg")
+            ;;
+        esac
+        : "$((i++))"
+    done
+
+    
+    __bu_cli_command_type "$bu_command"
+    local -r type=$BU_RET
+    BU_RET=()
+    case "$type" in
+    execute)
+        BU_RET=("$function_or_script_path" "${resolved_options[@]}")
+        ;;
+    source)
+        BU_RET=(builtin source "$function_or_script_path" "${resolved_options[@]}")
+        ;;
+    function)
+        BU_RET=("$function_or_script_path" "${resolved_options[@]}")
+        ;;
+    alias)
+        __bu_impl_process_alias "$function_or_script_path" "${resolved_options[@]}"
+        ;;
+    *)
+        bu_log_err "Invalid aliased command[$bu_command] properties[$type]"
+        return 1
+        ;;
+    esac
+    return 0
+}
+
 __bu_impl()
 {
     if ((!$#))
@@ -29,14 +97,14 @@ __bu_impl()
         fi
     fi
 
-    local bu_command=$1
+    local -r bu_command=$1
     shift
-    local remaining_options=("$@")
-    local function_or_script_path=${BU_COMMANDS[$bu_command]}
-    __bu_cli_command_properties "$bu_command"
-    local properties=$BU_RET
+    local -r remaining_options=("$@")
+    local -r function_or_script_path=${BU_COMMANDS[$bu_command]}
+    __bu_cli_command_type "$bu_command"
+    local -r type=$BU_RET
     local exit_code=0
-    case "$properties" in
+    case "$type" in
     execute)
         "$function_or_script_path" "${remaining_options[@]}"
         exit_code=$?
@@ -49,8 +117,17 @@ __bu_impl()
         "$function_or_script_path" "${remaining_options[@]}"
         exit_code=$?
         ;;
+    alias)
+        if ! __bu_impl_process_alias "$function_or_script_path" "$@"
+        then
+            bu_log_err "Processing of alias[$bu_command] failed"
+            return 1
+        fi
+        "${BU_RET[@]}"
+        exit_code=$?
+        ;;
     *)
-        bu_log_err "Invalid command[$bu_command] properties[$properties]"
+        bu_log_err "Invalid command[$bu_command] properties[$type]"
         __bu_cli_help
         return 1
         ;;

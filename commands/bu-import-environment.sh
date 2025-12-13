@@ -24,9 +24,7 @@ do
     case "$1" in
     -c|--command-dir)
         # Directory to add to the command search dirs, currently ${BU_COMMAND_SEARCH_DIRS[*]} 
-        bu_parse_positional $# \
-            --sh compopt -o filenames sh-- \
-            --stdout compgen -A directory stdout--
+        bu_parse_positional $# "${BU_AUTOCOMPLETE_SPEC_DIRECTORY[@]}"
         command_dirs+=("${!shift_by}")
         ;;
     --namespace-style)

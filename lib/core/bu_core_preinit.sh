@@ -94,6 +94,7 @@ declare -A -g BU_COMMAND_SEARCH_DIRS=()
 #     - function: For Bash functions
 #     - execute: For executable Bash scripts
 #     - source: For non-executable Bash scripts meant to be sourced
+#     - alias: For bu aliases. See `bu_preinit_register_new_alias`.
 #     - <empty>: To be dynamically derived
 # - verb
 #   - Meaning: Breakdown of the command. The verb portion.
@@ -390,3 +391,56 @@ bu_convert_file_to_command_namespace()
 }
 
 bu_preinit_register_user_defined_subcommand_dir "$BU_BUILTIN_COMMANDS_DIR" bu_convert_file_to_command_namespace prefix
+
+# Alias spec
+# '{}' represents 1 input
+# '{...}' represents remaining input
+# '{?}' represents don't add the remaining if there are no more inputs
+#
+# There can be no '{}' after '...'
+# There can be at most 1 '...'
+#
+# Example:
+# my_command --arg1 '{}' '{?}' --arg2 '{}' '{...}'
+#
+# Aliases are using for creating positional commands and transforming them into named argument commands 
+bu_preinit_register_new_alias()
+{
+    local -r alias_name=$1
+    if [[ -z "$alias_name" ]]
+    then
+        bu_log_err "Alias name is empty"
+        return 1
+    fi
+    shift
+
+    local i
+    local has_remaining_input=false
+    # Validate
+    for ((i = 0; i < $#; i++))
+    do
+        case "${!i}" in
+        '{...}')
+            if "$has_remaining_input"
+            then
+                bu_log_err "Bad alias spec, there should not be another {...}"
+                return 1
+            fi
+            has_remaining_input=true
+            ;;
+        '{}'|'{?}')
+            if "$has_remaining_input"
+            then
+                bu_log_err "Bad alias spec, there should not be ${!i} after a {...}"
+                return 1
+            fi
+        esac
+    done
+    local alias_spec=$*
+    # printf -v alias_spec '%q ' "$@" 
+    BU_COMMANDS[$alias_name]="$alias_spec"
+    BU_COMMAND_PROPERTIES[$alias_name,type]=alias
+    return 0
+}
+
+bu_preinit_register_new_alias gc get-command --namespace {} {?} --verb {} {?} --noun {} {...}

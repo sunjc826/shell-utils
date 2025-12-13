@@ -469,6 +469,7 @@ bu_parse_nested()
     shift_by=0
     local __bu_g_shift_by=0
     "$nested_impl" "${nested_args[@]}"
+    shift_by=$saved_shift_by
     : $((shift_by += __bu_g_shift_by))
 }
 
@@ -772,6 +773,7 @@ __bu_autocomplete_completion_func_master_helper()
                 COMPREPLY+=("${sub_args[@]}")
                 ;;
             --stdout)
+                # shellcheck disable=SC2207
                 COMPREPLY+=($("${sub_args[@]}" "${opt_cur_word[@]}"))
                 ;;
             --ret)
@@ -843,7 +845,7 @@ __bu_autocomplete_completion_func_master_impl()
     local tail=$5
     shift 5
     # bu_log_tty
-    # bu_log_tty "__bu_autocomplete_completion_func_master_impl '$completion_command_path' '$cur_word' '$prev_word' '$comp_cword' '$tail' $*"
+    # bu_log_tty "__bu_autocomplete_completion_func_master_impl path[$completion_command_path] cur[$cur_word] prev[$prev_word] cword[$comp_cword] tail[$tail] $(printf "'%s' " "$@")"
     # bu_log_tty
     local comp_words=("$@")
     comp_words[comp_cword]=${comp_words[comp_cword]%$tail}
@@ -880,6 +882,70 @@ __bu_autocomplete_completion_func_master_impl()
     fi
 }
 
+__bu_autocomplete_completion_func_cli_resolve_alias()
+{
+    # shellcheck disable=SC2206
+    local -r bu_alias_spec=($1)
+    shift
+    local -r bu_aliased_command=${bu_alias_spec[0]}
+    local -r function_or_script_path=${BU_COMMANDS[$bu_aliased_command]}
+    if [[ -z "$function_or_script_path" ]]
+    then
+        return 1
+    fi
+
+    local resolved_options=()
+
+    # bu_log_tty "cmdline: $(printf "'%s' " "$@")"
+
+    local arg
+    for arg in "${bu_alias_spec[@]:1}"
+    do
+        case "$arg" in
+        '{?}')
+            if ((!$#))
+            then
+                break
+            fi
+            ;;
+        '{}')
+            if ((!$#))
+            then
+                break
+            fi
+            resolved_options+=("$1")
+            shift
+            ;;
+        '{...}')
+            resolved_options+=("$@")
+            shift $#
+            ;;
+        *)
+            resolved_options+=("$arg")
+            ;;
+        esac
+        if ((!$#))
+        then
+            break
+        fi
+    done
+
+    __bu_cli_command_type "$bu_aliased_command"
+    local -r type=$BU_RET
+    BU_RET=()
+    case "$type" in
+    alias)
+        __bu_autocomplete_completion_func_cli_resolve_alias "$function_or_script_path" "${resolved_options[@]}"
+        ;;
+    execute|source|function)
+        BU_RET=("$function_or_script_path" "${resolved_options[@]}")
+        ;;
+    *)
+        return 1
+        ;;
+    esac
+}
+
 # ```
 # *Description*:
 # Completion function for the master command `bu`
@@ -894,9 +960,9 @@ __bu_autocomplete_completion_func_master_impl()
 # ```
 __bu_autocomplete_completion_func_cli()
 {
-    local completion_command=$1
-    local cur_word=$2
-    local prev_word=$3
+    local -r completion_command=$1
+    local -r cur_word=$2
+    local -r prev_word=$3
     case "$completion_command" in
     "$BU_CLI_COMMAND_NAME");;
     *) return 1;;
@@ -916,21 +982,33 @@ __bu_autocomplete_completion_func_cli()
         return 1
     fi
 
-    local comp_cword=$((COMP_CWORD - 1))
-    local comp_words=(
-        "$function_or_script_path"
-        "${COMP_WORDS[@]:2}"
-    )
-    local tail
-    if [[ "${COMP_LINE:COMP_POINT-1:1}" = ' ' ]]
+    if [[ "${BU_COMMAND_PROPERTIES[$arg1,type]}" = 'alias' ]]
     then
-        tail=${COMP_WORDS[COMP_CWORD]}
+        if ! __bu_autocomplete_completion_func_cli_resolve_alias "$function_or_script_path" "${COMP_WORDS[@]:2:COMP_CWORD-1}"
+        then
+            # bu_log_tty alias comp words failed
+            return 1
+        fi
+        local -r comp_cword=$((${#BU_RET[@]} - 1))
+        local -r comp_words=("${BU_RET[@]}")
+        # bu_log_tty alias comp words: "${comp_words[@]}"
+        __bu_autocomplete_completion_func_master_impl "${comp_words[0]}" "${comp_words[comp_cword]}" "${comp_words[comp_cword-1]}" "$comp_cword" "" "${comp_words[@]}"
     else
-        tail=${COMP_LINE:COMP_POINT}
-        tail=${tail%% *}
+        local -r comp_cword=$((COMP_CWORD - 1))
+        local -r comp_words=(
+            "$function_or_script_path"
+            "${COMP_WORDS[@]:2}"
+        )
+        local tail
+        if [[ "${COMP_LINE:COMP_POINT-1:1}" = ' ' ]]
+        then
+            tail=${COMP_WORDS[COMP_CWORD]}
+        else
+            tail=${COMP_LINE:COMP_POINT}
+            tail=${tail%% *}
+        fi
+        __bu_autocomplete_completion_func_master_impl "$function_or_script_path" "$cur_word" "$prev_word" "$comp_cword" "$tail" "${comp_words[@]}"
     fi
-
-    __bu_autocomplete_completion_func_master_impl "$function_or_script_path" "$cur_word" "$prev_word" "$comp_cword" "$tail" "${comp_words[@]}"
 }
 
 __bu_autocomplete_completion_func_script()
@@ -1019,7 +1097,11 @@ __bu_terminal_get_pos()
 
 __bu_fzf_current_pos()
 {
-    local lines=$(tput lines)
+    local lines
+    if ! lines=$(tput lines)
+    then
+        return 1
+    fi
     __bu_terminal_get_pos
     local row=$BU_RET
     local halfway=$((lines / 2))
@@ -1100,6 +1182,7 @@ __bu_bind_fzf_autocomplete_impl()
     if selected_command=$(
         if "$fzf_dynamic_reload"
         then
+            # TODO: (Not important) This probably doesn't work yet. Anyway this is too complex and not that useful.
             local command_line_no_last=$("${command_line[@]}")
             unset command_line_no_last[-1]
             __bu_fzf_current_pos --delimiter ' ' --exact +s --sync -q "${command_line[-1]}" --header "$ ${command_line[*]}..." \

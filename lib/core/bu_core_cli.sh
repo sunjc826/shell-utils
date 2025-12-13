@@ -23,7 +23,7 @@ __bu_cli_sort_keys()
 # *Returns*
 # - `$BU_RET`: Properties of the command. One of `function`, `source`, `execute`, or `no-default-found`.
 # ```
-__bu_cli_command_properties()
+__bu_cli_command_type()
 {
     local bu_command=$1
     local function_or_script_path=${BU_COMMANDS[$bu_command]}
@@ -70,10 +70,11 @@ __bu_cli_help()
     local -A executable_scripts=()
     local -A source_scripts=()
     local -A functions=()
+    local -A aliases=()
     for key in "${!BU_COMMANDS[@]}"
     do
         value=${BU_COMMANDS[$key]}
-        __bu_cli_command_properties "$key"
+        __bu_cli_command_type "$key"
         properties=$BU_RET
         case "$properties" in
         execute)
@@ -85,6 +86,9 @@ __bu_cli_help()
         function)
             functions[$key]=$value
             ;;
+        alias)
+            aliases[$key]=$value
+            ;;
         *)
             bu_log_warn "Unrecognized properties[$properties] for command[$key]"
             ;;
@@ -93,7 +97,7 @@ __bu_cli_help()
 
 
     echo
-    echo "The following commands using ${BU_TPUT_UNDERLINE}a new shell context${BU_TPUT_RESET} are available"
+    echo "The following commands using a ${BU_TPUT_UNDERLINE}new${BU_TPUT_RESET} shell context are available"
     echo
 
     for key in $(__bu_cli_sort_keys <<<"${!executable_scripts[*]}")
@@ -103,7 +107,7 @@ __bu_cli_help()
     done
 
     echo
-    echo "The following commands using ${BU_TPUT_UNDERLINE}the current shell context${BU_TPUT_RESET} are available"
+    echo "The following commands using the ${BU_TPUT_UNDERLINE}current${BU_TPUT_RESET} shell context are available"
     echo
     
     local opt_err=
@@ -126,6 +130,16 @@ __bu_cli_help()
     for key in $(__bu_cli_sort_keys <<<"${!functions[*]}")
     do
         value=${functions[$key]}
+        printf "    ${BU_TPUT_BOLD}%-30s${BU_TPUT_RESET}    %s\n" "$key" "$value"
+    done
+
+    echo
+    echo "The following aliases are available"
+    echo
+
+    for key in $(__bu_cli_sort_keys <<<"${!aliases[*]}")
+    do
+        value=${aliases[$key]}
         printf "    ${BU_TPUT_BOLD}%-30s${BU_TPUT_RESET}    %s\n" "$key" "$value"
     done
 
@@ -215,7 +229,7 @@ bu_autohelp()
     then
         printf "\n%s\n\n" "${BU_TPUT_BOLD}${BU_TPUT_DARK_BLUE}EXAMPLES${BU_TPUT_RESET}"
 
-        __bu_cli_command_properties "${script_path}"
+        __bu_cli_command_type "${script_path}"
         local opt_source=
         case "$BU_RET" in
         source) opt_source='source ';;
