@@ -1,5 +1,6 @@
-# shellcheck source=./bu_core_base.sh
-source "$BU_NULL"
+if false; then
+source ./bu_core_base.sh
+fi
 
 # ```
 # *Description*:

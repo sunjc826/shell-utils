@@ -1,11 +1,9 @@
-# shellcheck source=./bu_core_base.sh
-source "$BU_NULL"
-
-# shellcheck source=../../bu_user_defined.sh
-source "$BU_NULL"
+if false; then
+source ./bu_core_base.sh
+source ../../bu_user_defined.sh
+fi
 
 # MARK: Custom compopt
-declare -A -g BU_COMPOPT_CURRENT_COMPLETION_OPTIONS=()
 
 # Requires 
 # has_name: String
@@ -322,30 +320,39 @@ EOF
     awk '
     NR < '"$start_row"' { next }
     '"$start_indicator"' {
-        is_start = 1
-        idx = -1
-        outside = 0
-        in_alternatives = 1
-        pre_documentation = 2
-        in_documentation = 3
-        post_documentation = 4
-        state = 0
-        is_in_option = 0
-        is_in_documentation = 0
+        if (!is_start) {
+            is_start = 1
+            idx = -1
+            outside = 0
+            in_alternatives = 1
+            pre_documentation = 2
+            in_documentation = 3
+            post_documentation = 4
+            state = 0
+            is_in_option = 0
+            is_in_documentation = 0
 
-        case_count = 0
+            case_count = 0
+            debug_print = 0
+        }
     }
     
     ! is_start { next }
 
-    # { printf "# state=%s\n", state }
+    {
+        if (debug_print) {
+            printf "# state=%s\n", state 
+        } 
+    }
 
     { line = $0 }
 
     state < pre_documentation && ( \
         ( /^[[:space:]]*'"$__BU_AUTOCOMPLETE_OPTION_REGEX"'\|\\/ && gsub( /\|\\/, "", line ) ) \
     ) {
-        # print "# 1"
+        if (debug_print) {
+            printf "# 1: %s\n", NR
+        }
         gsub(/^[[:space:]]*/, "", line)
         if ( state == outside ) {
             idx = idx + 1
@@ -360,7 +367,9 @@ EOF
     state < pre_documentation && ( \
         ( /^[[:space:]]*'"$__BU_AUTOCOMPLETE_OPTION_REGEX"'\)/ && gsub( /\).*/, "", line) ) \
     ) {
-        # print "# 2"
+        if (debug_print) {
+            printf "# 2: %s\n", NR
+        }
         gsub(/^[[:space:]]*/, "", line)
         if ( state == outside ) {
             idx = idx + 1
@@ -376,7 +385,9 @@ EOF
     { line = $0 }
 
     state == pre_documentation {
-        # print "# 3"
+        if (debug_print) {
+            printf "# 3: %s\n", NR
+        }
         if ( $0 ~ /^[[:space:]]*# ?.*/ ) {
             state = in_documentation
         } else {
@@ -386,7 +397,9 @@ EOF
     }
 
     state == in_documentation {
-        # print "# 4"
+        if (debug_print) {
+            printf "# 4: %s\n", NR
+        }
         if ( $0 ~ /^[[:space:]]*# ?.*/ ) {
             sub( /^[[:space:]]*# ?/, "", line )
             print line
@@ -398,18 +411,27 @@ EOF
 
     state == post_documentation && /[[:space:]]*case .* in[[:space:]]*/ {
         ++case_count;
+        if (debug_print) {
+            printf "# 5: %s\n", NR
+        }
     }
 
     state == post_documentation && /[[:space:]]*esac[[:space:]]*/ {
         --case_count;
+        if (debug_print) {
+            printf "# 6: %s\n", NR
+        }
+        next;
     }
 
     state == post_documentation && !case_count && /.*;;[[:space:]]*$/ {
-        # print "# 5"
+        if (debug_print) {
+            printf "# 7: %s\n", NR
+        }
         state = outside
     }
 
-    '"$end_indicator"' { exit 0 }
+    '"$end_indicator"' && !case_count { exit 0 }
     '
 }
 
@@ -422,8 +444,7 @@ bu_parse_multiselect()
 
     local num_args=$1
     local arg1=$2
-    shift 2
-    if bu_env_is_in_autocomplete && ((num_args > 1))
+    if shift 2 && bu_env_is_in_autocomplete && ((num_args > 1)) && [[ -n "$arg1" ]]
     then
         bu_parsed_multiselect_arguments[$arg1]=1
     fi
@@ -457,7 +478,7 @@ bu_parse_command_context()
     local end_marker=${start_marker:2}--
     autocompletion=(
         :"$end_marker"
-        --call "$BU_CLI_COMMAND_NAME" "${start_marker:2}"
+        --as-if bu "${start_marker:2}"
     )
 
     local i
@@ -473,7 +494,7 @@ bu_parse_command_context()
     then
         autocompletion=()
     else
-        autocompletion+=("${BU_RET[@]}" call--)
+        autocompletion+=("${BU_RET[@]}" as-if--)
     fi
 
     : $(( shift_by += i - 1 )) $(( __bu_g_shift_by += i - 1 ))
@@ -724,7 +745,7 @@ __bu_autocomplete_completion_func_master_helper()
         case "${args[i]}" in
         :*)
             # Explicit literal
-            COMPREPLY+=("${args[idx]:1}")
+            COMPREPLY+=("${args[i]:1}")
             ;;
         --hint)
             bu_autocomplete_hint=${args[i+1]}

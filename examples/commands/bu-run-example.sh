@@ -22,6 +22,7 @@ if [[ -z "$COMP_CWORD" ]]
 then
 # shellcheck source=./__bu_entrypoint_decl.sh
 source "$BU_DIR"/bu_entrypoint.sh
+bu import-environment --command-dir "$BU_DIR"/examples/commands --namespace-style prefix
 fi
 
 bu_exit_handler_setup
@@ -39,6 +40,7 @@ local meat=
 local gaming_platform=
 local gaming_genre=
 local more_details=$BU_NULL
+local run_example2_args=("$BU_NULL")
 local is_help=false
 local error_msg=
 local options_finished=false
@@ -76,6 +78,7 @@ function __bu_example_parse_games()
 {
     while (($#))
     do
+        bu_parse_multiselect
         case "$1" in
         --platform)
             bu_parse_positional $# :Windows :Linux :Mac :FreeBSD
@@ -89,6 +92,9 @@ function __bu_example_parse_games()
             # terminates the parse loop
             shift
             break
+            ;;
+        *)
+            bu_parse_error_enum "$1"
             ;;
         esac
         if (( $# < shift_by ))
@@ -114,13 +120,13 @@ do
         bu_parse_multiselect $# "$1"
         case "$1" in
         -ff|--favorite-food)
+            # Favorite food of ${name:-the user}
             bu_parse_positional $# --enum fruit vegetable meat enum--
             food_type=${!shift_by}
-            # TODO: Fix autohelp
             case "$food_type" in
             fruit)
                 bu_parse_positional $# --stdout __bu_example_print_fruits stdout--
-                vegetable=${!shift_by}
+                fruit=${!shift_by}
                 ;;
             vegetable)
                 bu_parse_positional $# --ret __bu_example_get_vegetables
@@ -134,13 +140,17 @@ do
                 ;;
             esac
             ;;
-        # TODO: Fix bu_parse_nested
-        # -g|--games)
-        #     bu_parse_nested __bu_example_parse_games "$@"
-        #     ;;
+        -g|--games)
+            bu_parse_nested __bu_example_parse_games "$@"
+            ;;
         --details)
             bu_parse_positional $# --hint 'More about me'
             more_details=${!shift_by}
+            ;;
+        --run-example2)
+            # "Recursive" call into bu-run-example2
+            bu_parse_command_context "$@"
+            run_example2_args=("${BU_RET[@]}")
             ;;
         --)
             # Remaining options will be collected
@@ -175,7 +185,7 @@ fi
 if "$is_help"
 then
     bu_autohelp --description 'Example command to showcase autocomplete and parsing utilities' \
-    --example 'John of age 12 likes fish' 'John 12 --favorite-food meat white fish --details "I like fish"' 
+    --example 'John of age 12 likes fish' 'John 12 --favorite-food meat white fish --details "I like fish" --run-example2 -a1 val1_1 run-example2--' 
     return 0
 fi
 
@@ -204,6 +214,11 @@ esac
 if bu_is_not_null "$more_details"
 then
 echo "Details=${more_details}"
+fi
+
+if bu_is_not_null "$run_example2_args"
+then
+    bu run-example2 "${run_example2_args[@]}"
 fi
 
 bu_scope_pop_function

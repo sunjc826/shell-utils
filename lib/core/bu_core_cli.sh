@@ -1,13 +1,8 @@
-# shellcheck source=./bu_core_autocomplete.sh
-source "$BU_NULL"
+if false; then
+source ./bu_core_autocomplete.sh
+fi
 
 # MARK: Top-level CLI
-
-# ```
-# The master command name. Default is `bu`, but users can override it by defining `BU_USER_DEFINED_CLI_COMMAND_NAME`.
-# ```
-BU_CLI_COMMAND_NAME=${BU_USER_DEFINED_CLI_COMMAND_NAME:-bu}
-
 __bu_cli_sort_keys()
 {
     tr ' ' '\n' | sort

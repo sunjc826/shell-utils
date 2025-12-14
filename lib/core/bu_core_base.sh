@@ -1,13 +1,11 @@
-# It is expected that source is implemented by bu_def_source at this point.
-# shellcheck source=../../bu_custom_source.sh
-source "$BU_NULL"
-
+if false; then
+source ../../bu_custom_source.sh
+source ./bu_core_var.sh
 # Note: static.sh should be sourced outside of this file!
-# shellcheck source=../../config/bu_config_static.sh
-source "$BU_NULL"
+source ../../config/bu_config_static.sh
 # Note: dynamic.sh should be sourced outside of this file!
-# shellcheck source=../../config/bu_config_dynamic.sh
-source "$BU_NULL"
+source ../../config/bu_config_dynamic.sh
+fi
 
 # MARK: Filesystem utilities
 
@@ -1575,9 +1573,18 @@ __bu_exit_handler()
 {
     local exit_code=$?
     set +xv
-    if [[ $- =~ e && "$exit_code" != 0 ]]
+    local debug=false # Set to true if needed
+    local dev
+    if "$debug"
+    then
+        dev=/dev/tty
+    else
+        dev=/dev/stdout
+    fi
+    if "$debug" || [[ $- =~ e && "$exit_code" != 0 ]]
     then
         set +e
+        {
         echo
         echo "Script exited with code: ${BU_TPUT_RED}$exit_code${BU_TPUT_RESET}"
         echo "Traceback (most recent call last):"
@@ -1597,6 +1604,7 @@ __bu_exit_handler()
                                         "$BU_TPUT_UNDERLINE" "$(basename -- "${BASH_SOURCE[i+1]}")" "${BASH_LINENO[i]}" "$BU_TPUT_NO_UNDERLINE"
             fi
         done
+        } >"$dev"
 
         if "${BU_EXIT_HANDLER_VSCODE_POPUP:-false}"
         then
@@ -1614,7 +1622,10 @@ __bu_exit_handler()
         bu_log_err Something failed during cleanup
     fi
 
-    # sleep 120
+    if "$debug"
+    then
+        sleep 120
+    fi
     return "$exit_code"
 }
 

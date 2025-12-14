@@ -1,24 +1,8 @@
-# shellcheck source=./bu_core_base.sh
-source "$BU_NULL"
-
-# shellcheck source=./bu_core_autocomplete.sh
-source "$BU_NULL"
-
-# shellcheck source=./bu_core_cli.sh
-source "$BU_NULL"
-
-# Double quote the value to get Go-To Definition working in bash-language-server
-
-# ```
-# This mapping will be passed directly to `bind -x`
-# ```
-declare -A -g BU_KEY_BINDINGS=(
-    ['\ee']="__bu_bind_edit"
-    ['\eg']="__bu_bind_toggle_gdb"
-    ['\ea']="__bu_bind_fzf_history"
-    ['\ex']="__bu_bind_fzf_autocomplete"
-    ['\C-x']="__bu_bind_fzf_autocomplete"
-)
+if false; then
+source ./bu_core_base.sh
+source ./bu_core_autocomplete.sh
+source ./bu_core_cli.sh
+fi
 
 # ```
 # *Description*:
@@ -46,13 +30,6 @@ bu_preinit_register_user_defined_key_binding()
 }
 
 # ```
-# This mapping will be passed directly to `complete -F`
-# ```
-declare -A -g BU_AUTOCOMPLETE_COMPLETION_FUNCS=(
-    [$BU_CLI_COMMAND_NAME]="__bu_autocomplete_completion_func_cli"
-)
-
-# ```
 # *Description*:
 # Register a user-defined completion function for a command
 #
@@ -76,50 +53,6 @@ bu_preinit_register_user_defined_completion_func()
     local completion_func=$2
     BU_AUTOCOMPLETE_COMPLETION_FUNCS[$completion_command]=$completion_func
 }
-
-# ```
-# Map of command to script path / function
-# ```
-declare -A -g BU_COMMANDS=()
-# ```
-# Map of directory to convert_file_to_command
-# ```
-declare -A -g BU_COMMAND_SEARCH_DIRS=()
-# ```
-# Map of (<command>,<query>) to properties
-# The following queries are currently defined
-# - type 
-#   - Meaning: The type of Bash object implementing the command
-#   - Values: 
-#     - function: For Bash functions
-#     - execute: For executable Bash scripts
-#     - source: For non-executable Bash scripts meant to be sourced
-#     - alias: For bu aliases. See `bu_preinit_register_new_alias`.
-#     - <empty>: To be dynamically derived
-# - verb
-#   - Meaning: Breakdown of the command. The verb portion.
-# - noun
-#   - Meaning: Breakdown of the command. The noun portion.
-# - namespace
-#   - Meaning: Breakdown of the command. The namespace portion.
-# ```
-declare -A -g BU_COMMAND_PROPERTIES=()
-
-# ```
-# Set of all parsed verbs from the bu command list
-# Note: This is an associative array, thus to get all verbs, do `${!BU_COMMAND_VERBS[@]}`
-# ```
-declare -A -g BU_COMMAND_VERBS=()
-# ```
-# Set of all parsed nouns from the bu command list
-# Note: This is an associative array, thus to get all nouns, do `${!BU_COMMAND_NOUNS[@]}`
-# ```
-declare -A -g BU_COMMAND_NOUNS=()
-# ```
-# Set of all parsed namespaces from the bu command list
-# Note: This is an associative array, thus to get all nouns, do `${!BU_COMMAND_NAMESPACE[@]}`
-# ```
-declare -A -g BU_COMMAND_NAMESPACES=()
 
 # ```
 # *Description*:

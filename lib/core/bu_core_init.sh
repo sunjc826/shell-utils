@@ -1,9 +1,7 @@
-# shellcheck source=./bu_core_base.sh
-source "$BU_NULL"
-# shellcheck source=./bu_core_autocomplete.sh
-source "$BU_NULL"
-# shellcheck source=./bu_core_preinit.sh
-source "$BU_NULL"
+if false; then
+source ./bu_core_base.sh
+source ./bu_core_autocomplete.sh
+fi
 
 # MARK: Initialization logic
 __bu_init_env()

@@ -4,13 +4,14 @@ case "${BASH_SOURCE}" in
 esac
 
 source ./bu_custom_source.sh --__bu-once
-source ./bu_user_defined.sh --__bu-once
+source ./lib/core/bu_core_user_defined.sh --__bu-once
 
 source ./config/bu_config_static.sh --__bu-once
 source ./config/bu_config_dynamic.sh
 
 bu_source_user_defined_configs
 
+source ./lib/core/bu_core_var.sh --__bu-once
 source ./lib/core/bu_core_base.sh --__bu-once
 source ./lib/core/bu_core_autocomplete.sh --__bu-once
 source ./lib/core/bu_core_tmux.sh --__bu-once

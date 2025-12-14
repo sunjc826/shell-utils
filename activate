@@ -4,22 +4,29 @@ case "${BASH_SOURCE}" in
 *) pushd . &>/dev/null ;; # This seems like duplicate work but we need to match the popd later
 esac
 
-case "$1" in
--e|--example|--examples)
-    source ./bu_examples_entrypoint.sh
-    ;;
--t|--test|--tests)
-    source ./bu_test_entrypoint.sh
-    ;;
-'')
-    source ./bu_entrypoint.sh
-    ;;
-*)
-    echo "Unsupported activate param[$1]" >&2
-    popd &>/dev/null
-    return 1
+function bu_activate_impl() 
+{
+local force=false
+case "$*" in
+*f*)
+    force=true
     ;;
 esac
 
+case "$*" in
+*e*)
+    BU_SOURCE_IS_FORCE="$force" source ./bu_examples_entrypoint.sh
+    ;;
+*t*)
+    BU_SOURCE_IS_FORCE="$force" source ./bu_test_entrypoint.sh
+    ;;
+*)
+    BU_SOURCE_IS_FORCE="$force" source ./bu_entrypoint.sh
+    ;;
+esac
 popd &>/dev/null
+}
+
+bu_activate_impl "$@"
+
 

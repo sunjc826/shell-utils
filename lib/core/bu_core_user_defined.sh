@@ -1,8 +1,7 @@
-# shellcheck source=./bu_custom_source.sh
-source "$BU_NULL"
-
-# shellcheck source=./bu_user_defined_decl.sh
-source "$BU_NULL"
+if false; then
+source ../../bu_custom_source.sh
+source ../../bu_user_defined_decl.sh
+fi
 
 # ```
 # *Description*:
