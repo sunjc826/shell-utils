@@ -1374,7 +1374,7 @@ bu_read_word()
     while (($#))
     do
         case "$1" in
-        --prompt) read_args+=(-p "$2"); shift 2;;
+        --prompt) read_args+=(-p "$2 "); shift 2;;
         --reply) reply_name=$2; shift 2;;
         --) shift; break ; ;;
         *) break ;;

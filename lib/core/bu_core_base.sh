@@ -2814,7 +2814,7 @@ bu_run()
             shift_by=2
             ;;
         --working-directory)
-            working_directory=$(realpath -- "$1")
+            working_directory=$(realpath -- "$2")
             shift_by=2
             ;;
         --mapfile)
@@ -2836,6 +2836,7 @@ bu_run()
             shift_by=2
             ;;
         "")
+            # Swallow empty options to support patterns like "$optional_option" which could be an empty string
             ;;
         --)
             shift
@@ -2845,6 +2846,10 @@ bu_run()
             bu_log_unrecognized_option "$1"
             bu_scope_pop_function
             return 1
+            ;;
+        *)
+            # While -- is more rigorous, this is more user-friendly.
+            break
             ;;
         esac
         shift "$shift_by"
