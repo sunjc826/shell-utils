@@ -28,7 +28,7 @@ do
         bu_parse_positional $# "${BU_AUTOCOMPLETE_SPEC_DIRECTORY[@]}"
         command_dirs+=("${!shift_by}")
         ;;
-    --namespace-style)
+    -ns|--namespace-style)
         # One of ${BU_ENUM_NAMESPACE_STYLE[*]}. Default is empty, which has the same behavior as an explicit none.
         # - none: No namespace in command
         # - prefix-keep: Synonym to none
