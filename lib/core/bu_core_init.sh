@@ -1,6 +1,7 @@
 if false; then
 source ./bu_core_base.sh
 source ./bu_core_autocomplete.sh
+source ./bu_core_early_init.sh
 fi
 
 # MARK: Initialization logic
@@ -9,38 +10,7 @@ __bu_init_env()
     bu_env_append_path "$BU_LIB_BIN_DIR"
     bu_env_append_path "$BU_LIB_BINSRC_DIR"
 
-    local dir
-    local file
-    local convert_file_to_subcommand
-    local command
-    for dir in "${!BU_COMMAND_SEARCH_DIRS[@]}"
-    do
-        bu_env_append_path "$dir"
-        convert_file_to_subcommand=${BU_COMMAND_SEARCH_DIRS[$dir]}
-        for file in $(find "$dir" -printf "%P\n")
-        do
-            case "$file" in
-            *.txt|README|README.*|*.md) 
-                continue
-                ;;
-            __*)
-                # 2 underscores in front can be used to hide scripts
-                continue
-                ;;
-            esac
-
-            command=${file%.sh}
-            if [[ -n "$convert_file_to_subcommand" ]]
-            then
-                if $convert_file_to_subcommand "$file"
-                then
-                    command=$BU_RET
-                fi
-            fi
-
-            BU_COMMANDS[$command]=$dir/$file
-        done
-    done
+    __bu_init_env_commands
 }
 
 __bu_init_keybindings()
