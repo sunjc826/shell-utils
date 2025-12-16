@@ -207,6 +207,13 @@ bu_dirname()
     esac
 }
 
+bu_pushd_current()
+{
+    local bash_source=$1
+    bu_dirname "$bash_source"
+    pushd "$BU_RET" &>/dev/null
+}
+
 # ```
 # *Description*:
 # Get base name of a filepath. Similar to `basename` except that no process is spawned.

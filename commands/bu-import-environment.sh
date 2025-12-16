@@ -12,6 +12,7 @@ bu_run_log_command "$@"
 local namespace_style=
 local command_dirs=()
 local is_git_pull=false
+local is_init=true
 local is_force=false
 local is_help=false
 local error_msg=
@@ -43,6 +44,10 @@ do
     -p|--pull)
         # Pull from the git repo
         is_git_pull=true
+        ;;
+    +i|--no-init)
+        # An optimization if import-environment is to be called successively
+        is_init=false;
         ;;
     -f|--force)
         # Forcefully source all files.
@@ -113,7 +118,11 @@ if "$is_force"
 then
     opt_force=(--__bu-force)
 fi
+
+if "$is_init"
+then
 source "$BU_DIR"/bu_entrypoint.sh "${opt_force[@]}"
+fi
 
 bu_scope_pop_function
 }
