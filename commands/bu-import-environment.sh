@@ -39,6 +39,7 @@ do
         # - powershell: Script naming style is verb-namespace-noun.sh (i.e. PowerShell style),
         #               in this case this option isn't needed.
         bu_parse_positional $# --enum "${BU_ENUM_NAMESPACE_STYLE[@]}" enum--
+        bu_validate_positional "${!shift_by}"
         namespace_style=${!shift_by}
         ;;
     -p|--pull)

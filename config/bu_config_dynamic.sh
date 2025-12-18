@@ -9,7 +9,7 @@ BU_INVALIDATE_CACHE=false
 # ```
 # The log-level when running commands
 # ```
-BU_LOG_LVL=$BU_LOG_LVL_DEBUG
+BU_LOG_LVL=$BU_LOG_LVL_INFO
 # ```
 # The log-level when hitting TAB.
 # In general, this should only log errors to avoid cluttering the

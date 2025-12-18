@@ -49,6 +49,7 @@ do
         # It should be one of 
         # $(printf "  - ${BU_TPUT_BOLD}%s${BU_TPUT_RESET}\n" "${!BU_COMMAND_SEARCH_DIRS[@]}")
         bu_parse_positional $# --enum "${!BU_COMMAND_SEARCH_DIRS[@]}" enum--
+        bu_validate_positional "${!shift_by}"
         dir=${!shift_by}
         ;;
     -n|--name)
