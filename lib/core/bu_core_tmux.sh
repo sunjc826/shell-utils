@@ -62,10 +62,27 @@ __bu_spawn_tmux_resolve_split_mode()
 # ```
 bu_spawn_tmux_stop_commands()
 {
-    local pane
+    # q: To exit tmux scroll mode
+    # C-c: Kills most non-interactive applications, for interactive applications, neutralizes the q
+    # C-d: EOF, kills most interactive applications. We don't want to always enable this because it can kill the bash shell itself.
+    # Note that the keys need to be delivered one at a time, I find that
+    # tmux send-keys q C-c C-d does not work
+    # Not sure why. Does the kernel line discipline need some delay in between key presses for
+    # them to each take effect?
+    local keys=(q C-c)
+    case "$1" in
+    --repl)
+        keys+=(C-d)
+        shift
+        ;;
+    esac
+    local pane key
     for pane
     do
-        tmux send-keys -t "$pane" q C-c
+        for key in "${keys[@]}"
+        do
+            tmux send-keys -t "$pane" "$key"
+        done
     done
 }
 
@@ -128,6 +145,10 @@ bu_spawn_tmux_join_commands()
 # ```
 bu_spawn_tmux_stop_join_commands()
 {
+    local stop_options=()
+    case "$1" in
+    --repl) stop_options+=("$1"); shift;;
+    esac
     if (($# / 2 * 2 != $#))
     then
         bu_log_err 'There should be an even number of arguments'
@@ -142,7 +163,7 @@ bu_spawn_tmux_stop_join_commands()
         to_join+=("$2")
         shift 2
     done
-    bu_spawn_tmux_stop_commands "${to_stop[@]}"
+    bu_spawn_tmux_stop_commands "${stop_options[@]}" "${to_stop[@]}"
     bu_spawn_tmux_join_commands "${to_join[@]}"
 }
 
@@ -172,6 +193,7 @@ bu_spawn()
     local is_wait=false
     local is_function=
     local is_source_bashrc=true
+    local is_repl=false
     local shift_by
     while (($#))
     do
@@ -213,6 +235,9 @@ bu_spawn()
         --no-bashrc)
             is_source_bashrc=false
             ;;
+        --repl)
+            is_repl=true
+            ;;
         --)
             shift
             break
@@ -249,6 +274,12 @@ bu_spawn()
         else
             is_function=true
         fi
+    fi
+
+    local stop_options=()
+    if "$is_repl"
+    then
+        stop_options+=(--repl)
     fi
 
     local exit_code=0
@@ -359,7 +390,7 @@ bu_spawn()
     then
         if "$is_scoped"
         then
-            bu_scope_add_cleanup bu_spawn_tmux_stop_commands "$pane_id"
+            bu_scope_add_cleanup bu_spawn_tmux_stop_commands "${stop_options[@]}" "$pane_id"
         fi
     else
         if "$is_wait" && "$is_scoped"
@@ -373,7 +404,7 @@ bu_spawn()
             fi
         elif "$is_scoped"
         then
-            bu_scope_add_cleanup bu_spawn_tmux_stop_join_commands "$pane_id" "$ret_file_fd"
+            bu_scope_add_cleanup bu_spawn_tmux_stop_join_commands "${stop_options[@]}" "$pane_id" "$ret_file_fd"
         fi
     fi
 
