@@ -6,7 +6,7 @@ esac
 
 function bu_activate_impl() 
 {
-local force=false
+local force=${BU_SOURCE_IS_FORCE:-false}
 case "$*" in
 *f*)
     force=true

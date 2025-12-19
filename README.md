@@ -169,3 +169,7 @@ Variables:
 Use `BU_` to namespace global variables. Use `bu_` to namespace functions. BU stands for Bash Utils.
 The `BU_USER_DEFINED_` prefix indicates variables that are not defined anywhere within shell-utils. It is expected that the user defines them externally.
 
+To get the shell-utils library into one file, run
+```sh
+source ./activate --__bu-inline ./inline.sh
+```

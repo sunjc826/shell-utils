@@ -250,9 +250,11 @@ fi
 # ```
 BU_SOURCE_IS_CUSTOM=false
 
-if [[ -z "$BU_SOURCE_IS_FORCE" ]]; then
-BU_SOURCE_IS_FORCE=false
-fi
+BU_SOURCE_IS_FORCE=${BU_SOURCE_IS_FORCE:-false}
+BU_SOURCE_IS_AUTOPUSHD=${BU_SOURCE_IS_AUTOPUSHD:-false}
+BU_SOURCE_IS_INLINE=${BU_SOURCE_IS_INLINE:-false}
+BU_SOURCE_INLINE_OUTPUT=${BU_SOURCE_INLINE_OUTPUT:-}
+
 # ```
 # *Description*:
 # Define a custom source function that supports additional options
@@ -283,9 +285,12 @@ bu_def_source()
         BU_NULL) return 0;;
         esac
 
-        local is_force=false
+        local is_force=
         local is_once=false
-        local is_pushd=true
+        local is_autopushed=
+        local is_inline=
+        local is_no_inline=false
+        local inline_output=
         local shift_by
         while (($#))
         do
@@ -301,9 +306,20 @@ bu_def_source()
                 # (For e.g. we can force source by setting BU_SOURCE_IS_FORCE to true)
                 is_once=true
                 ;;
-            --__bu-no-pushd)
+            --__bu-autopushd)
+                is_autopushed=true
+                ;;
+            --__bu-no-autopushd)
                 # Don't automatically pushd into the directory
-                is_pushd=false
+                is_autopushed=false
+                ;;
+            --__bu-inline)
+                is_inline=true
+                inline_output=$(realpath -- "$2")
+                shift_by=2
+                ;;
+            --__bu-no-inline)
+                is_no_inline=true
                 ;;
             --__bu-*)
                 bu_basic_log_err "Unrecognized source option $1"
@@ -315,64 +331,112 @@ bu_def_source()
             esac
             shift "$shift_by"
         done
-
         local saved_is_force=$BU_SOURCE_IS_FORCE
-        if "$is_force"
+        BU_SOURCE_IS_FORCE=${is_force:-$BU_SOURCE_IS_FORCE}
+        local saved_is_autopushd=$BU_SOURCE_IS_AUTOPUSHD
+        BU_SOURCE_IS_AUTOPUSHD=${is_autopushed:-$BU_SOURCE_IS_AUTOPUSHD}
+        local saved_is_inline=$BU_SOURCE_IS_INLINE
+        BU_SOURCE_IS_INLINE=${is_inline:-$BU_SOURCE_IS_INLINE}
+        local saved_inline_output=$BU_SOURCE_INLINE_OUTPUT
+        BU_SOURCE_INLINE_OUTPUT=${inline_output:-$BU_SOURCE_INLINE_OUTPUT}
+
+        local basename
+        local dirname
+        case "$source_filepath" in
+        */*)
+            basename=${source_filepath##*/}
+            dirname=${source_filepath%/*}
+            ;;
+        *)
+            basename=$source_filepath
+            dirname=.
+            ;;
+        esac
+
+        if [[ "$is_inline" = true ]]
         then
-            BU_SOURCE_IS_FORCE=true
+            BU_SOURCE_ONCE_CACHE=()
+            : >"$BU_SOURCE_INLINE_OUTPUT"
         fi
 
-        # We assume all bu entrypoints to be uniquely named
         # shellcheck disable=SC2317
-        bu_basename "$source_filepath"
-        local basename=$BU_RET
-        # shellcheck disable=SC2317
-        if "$is_once" && "${BU_SOURCE_ONCE_CACHE[$basename]:-false}"
-        then
-            if "$BU_SOURCE_IS_FORCE"
-            then
-                bu_basic_log_debug "$basename has already been sourced, forcing."
-            else
-                bu_basic_log_debug "$basename has already been sourced, skipping."
-                return 0
-            fi
-        fi
-
         if "$is_once"
         then
+            # We assume all bu source once files to be uniquely named
+            if "${BU_SOURCE_ONCE_CACHE[$basename]:-false}"
+            then
+                if "$BU_SOURCE_IS_FORCE"
+                then
+                    bu_basic_log_debug "$basename has already been sourced, forcing."
+                else
+                    bu_basic_log_debug "$basename has already been sourced, skipping."
+                    return 0
+                fi
+            fi
             bu_basic_log_debug "sourcing(--__bu-once) $source_filepath"
         fi
 
         # shellcheck disable=SC2317
         BU_SOURCE_ONCE_CACHE[$basename]=true
 
-        # TODO pushd handling
+        if "$BU_SOURCE_IS_AUTOPUSHD"
+        then
+            pushd "$dirname" >/dev/null
+            source_filepath=$basename
+        fi
 
-        # Our source implementations allow functions too
-        # Functions are in fact more similar to sourcing scripts than invoking a script in a new shell
-        # Slight optimization: If source_filepath ends in .sh, then we assume it is a script instead of a function
-        case "$source_filepath" in
-        *.sh)
-            # shellcheck disable=SC2317
-            builtin source "$source_filepath" "$@"
-            ;;
-        *)
-            case "$(type -t "$source_filepath" 2>/dev/null)" in
-            function)
-                "$source_filepath" "$@"
-                ;;
-            *)
+        if "$BU_SOURCE_IS_INLINE"
+        then
+            if ! "$is_no_inline"
+            then
+            if [[ -n "$__bu_source_inline_cur_line" ]]
+            then
+                # echo "${BASH_SOURCE[1]}" "$__bu_source_inline_cur_line,$((BASH_LINENO[0] - 1))"
+                sed -n "$__bu_source_inline_cur_line,$(( BASH_LINENO[0] - 1 )) p" "${BASH_SOURCE[1]}" >>"$BU_SOURCE_INLINE_OUTPUT"
+                __bu_source_inline_cur_line=$(( BASH_LINENO[0] + 1 ))
+            fi
+            if declare -f "$source_filepath" >/dev/null
+            then
+                bu_basic_log_debug "$source_filepath is func"
+                sed -n "${BASH_LINENO[0]} p" "${BASH_SOURCE[1]}" >>"$BU_SOURCE_INLINE_OUTPUT"
+            else
+                local __bu_source_inline_cur_line=1
+                builtin source "$source_filepath" "$@"
+                # echo "$source_filepath" "$__bu_source_inline_cur_line,$"
+                sed -n "$__bu_source_inline_cur_line,$ p" "$source_filepath" >>"$BU_SOURCE_INLINE_OUTPUT"
+            fi
+
+            fi
+        else
+            # Our source implementations allow functions too
+            # Functions are in fact more similar to sourcing scripts than invoking a script in a new shell
+            # Slight optimization: If source_filepath ends in .sh, then we assume it is a script instead of a function
+            case "$source_filepath" in
+            *.sh)
                 # shellcheck disable=SC2317
                 builtin source "$source_filepath" "$@"
                 ;;
+            *)
+                if declare -f "$source_filepath" >/dev/null
+                then
+                    "$source_filepath" "$@"
+                else
+                    # shellcheck disable=SC2317
+                    builtin source "$source_filepath" "$@"
+                fi
+                ;;
             esac
-            ;;
-        esac
-
-        if "$is_force"
-        then
-            BU_SOURCE_IS_FORCE=$saved_is_force
         fi
+
+        if "$BU_SOURCE_IS_AUTOPUSHD"
+        then
+            popd >/dev/null
+        fi
+
+        BU_SOURCE_IS_FORCE=$saved_is_force
+        BU_SOURCE_IS_AUTOPUSHD=$saved_is_autopushd
+        BU_SOURCE_IS_INLINE=$saved_is_inline
+        BU_SOURCE_INLINE_OUTPUT=$saved_inline_output
     }
 }
 
@@ -436,13 +500,14 @@ bu_source_multi_once()
     then
         bu_basic_log_warn "Using builtin source for bu_source_multi_once, --__bu-once feature will not be effective."
         bu_source_multi "$@"
+    else
+        local filepath
+        for filepath
+        do
+            # shellcheck disable=SC1090
+            source "$filepath" --__bu-once --__bu-no-inline
+        done
     fi
-    local filepath
-    for filepath
-    do
-        # shellcheck disable=SC1090
-        source "$filepath" --__bu-once
-    done
 }
 
 # ```
