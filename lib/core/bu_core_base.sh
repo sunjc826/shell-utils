@@ -586,7 +586,7 @@ __bu_log()
 bu_assert_err()
 {
     __bu_log "$BU_TPUT_RED" "$BU_LOG_LVL_ERR" ERR "$@"
-    false
+    return 1
 }
 
 # ```
@@ -1569,6 +1569,15 @@ bu_scoped_pushd()
 }
 
 BU_EXIT_HANDLER_CLEANING_UP=false
+
+# ```
+# *Description*:
+# Exit handler to perform cleanup and print traceback on error
+#
+# *Params*: None
+#
+# *Returns*: Exit code of the script
+# ```
 __bu_exit_handler()
 {
     local exit_code=$?
@@ -1629,12 +1638,26 @@ __bu_exit_handler()
     return "$exit_code"
 }
 
+# ```
+# *Description*:
+# Setup the exit handler without enabling errexit
+#
+# *Params*: None
+# *Returns*: None
+# ```
 bu_exit_handler_setup_no_e()
 {
     trap 'BU_ERR_LINENO=$LINENO; BU_ERR_COMMAND=$BASH_COMMAND' ERR
     trap __bu_exit_handler EXIT
 }
 
+# ```
+# *Description*:
+# Setup the exit handler with errexit enabled
+#
+# *Params*: None
+# *Returns*: None
+# ```
 bu_exit_handler_setup()
 {
     set -e -E
@@ -1809,6 +1832,13 @@ bu_sync_cycle_file()
     fi
 }
 
+# ```
+# *Description*:
+# Cycle the last run commands log file, keeping only the last 500 unique lines
+#
+# *Params*: None
+# *Returns*: None
+# ```
 bu_sync_cycle_last_run_cmds()
 {
     bu_sync_cycle_file "$BU_LAST_RUN_CMDS" true 500 false || return 1
@@ -2323,6 +2353,16 @@ bu_env_remove_from_pythonpath()
     __bu_env_remove_from_generic_path PYTHONPATH "$1"
 }
 
+# ```
+# *Description*:
+# Rename a bash function
+#
+# *Params*:
+# - `$1`: Old function name
+# - `$2`: New function name
+#
+# *Returns*: None
+# ```
 bu_env_rename_func()
 {
     local old_func_name=$1
@@ -2367,6 +2407,30 @@ bu_env_is_in_autocomplete()
 }
 
 # MARK: Run utils
+# ```
+# *Description*:
+# Execute a command with caching based on specified environment variables and bash variables
+#
+# *Params*:
+# - `--check`: If present, only check if the command is cached, do not execute it
+# - `--error-pattern <pattern>`: Regular expression pattern to search for in the command output that indicates an error
+# - `--allow-empty`: If present, do not treat empty output as an error
+# - `--env-vars <var1,var2,...>`: Comma-separated list of environment variable names to include in the cache key
+# - `--bash-vars <var1,var2,...>`: Comma-separated list of bash variable names to include in the cache key
+# - `--dir <cache_dir>`: Directory to use for caching (default: `$BU_HASHED_CACHE_DIR`)
+# - `--invalidate` or `--invalidate-cache`: If present, invalidate the cache for this command before executing
+# - `--invalidate-bool` or `--invalidate-cache-bool <true|false>`: Boolean to control cache invalidation
+# - `--strict-equality`: If present, use strict equality (including command line) for cache hits
+# - `--`: End of options; the remaining arguments are treated as the command to execute
+# - `...`: Command and its arguments to execute
+#
+# *Returns*:
+# - Exit code:
+#   - `0`: If the command was executed successfully or the cached output was used
+#   - `1`: If the command failed, the error pattern was found, or the output was empty (unless `--allow-empty` is used)
+# - `stdout`: The output of the command, either from cache or from execution
+# - If `--check` is used, the command outputs the cache key and returns `0` if cached, `1` if not cached
+# ```
 bu_cached_execute()
 {
     local is_check=false
@@ -2555,6 +2619,18 @@ bu_cached_execute()
     return 0
 }
 
+# ```
+# *Description*:
+# Cycle command logs, keeping only a specified number of log files
+#
+# *Params*:
+# - `$1`: Command name (used as the base name for log files)
+# - `$2`: Cycle length (number of log files to keep)
+#
+# *Returns*:
+# - `${BU_RET[@]}`: Array containing the write and read file descriptors for the new log file
+#                   (`${BU_RET[0]}`: write fd, `${BU_RET[1]}`: read fd)
+# ```
 __bu_cycle_logs()
 {
     BU_RET=()
@@ -2743,6 +2819,40 @@ bu_sleep()
     fi
 }
 
+# ```
+# *Description*:
+# Run a command with various options such as logging, debugging, and working directory management.
+#
+# *Params*:
+# - `--gdb`: Run the command under gdb
+# - `--log`: Enable logging to a file
+# - `--log-stdout`: Enable logging to stdout
+# - `--copy-logs-to <path>`: Copy logs to the specified path after execution
+# - `--open-logs`: Open the log file after execution
+# - `--kill`: Kill existing instances of the command before running
+# - `--ignore-non-zero-exit-code`: Ignore non-zero exit codes from the command
+# - `--watch <interval>`: Re-run the command at the specified interval (in seconds)
+# - `--ldd`: Print the output of `ldd` for the command before running
+# - `--dry-run`: Print the command that would be run without actually executing it
+# - `--cached`: Run the command with caching
+# - `--no-log-last-run-cmd`: Do not log the command to the last run commands history
+# - `--cmd-log-file <file>`: Log the command to the specified file
+# - `--working-directory <dir>`: Change to the specified working directory before running the command
+# - `--mapfile`: Capture the command's output into an array variable
+# - `--mapfile-str`: Capture the command's output into a string variable
+# - `--mapfile-outparam <var>`: Specify the output variable name for mapfile options (default: BU_RET)
+# - `--tmux-name <name>`: Set the tmux window name to the specified name
+# - `--wait-group <fifo>`: Use the specified fifo for wait group synchronization
+# - `--`: End of options; the remaining arguments are treated as the command to run
+# - `...`: Command and its arguments to run
+#
+# *Returns*:
+# - Exit code:
+#   - `0`: If the command was executed successfully
+#   - `1`: If the command failed (unless `--ignore-non-zero-exit-code` is used)
+# - `${BU_RET[@]}`: If `--mapfile`, contains the command's output
+# - `${BU_RET}`: If `--mapfile-str`, contains the command's output as a string
+# ```
 bu_run()
 {
     bu_scope_push_function
@@ -3100,6 +3210,8 @@ bu_run()
 }
 
 # MARK: VSCode
+
+# Detect if we are in WSL
 BU_ENV_IS_WSL=
 read -r < /proc/version
 if [[ "$REPLY" = *Microsoft* ]]

@@ -3,6 +3,14 @@ source ./bu_core_autocomplete.sh
 fi
 
 # MARK: Top-level CLI
+# ```
+# *Description*:
+# Sorts keys alphabetically
+# *Params*:
+# - stdin: Keys (space or line separated)
+# *Returns*:
+# - stdout: Sorted keys (one per line)
+# ```
 __bu_cli_sort_keys()
 {
     tr ' ' '\n' | sort
@@ -149,6 +157,16 @@ __bu_cli_help()
     done
 } >&2
 
+# ```
+# *Description*:
+# Generates automatic help documentation for a CLI script
+#
+# *Params*:
+# - `--description <description>`: Description of the script
+# - `--example <purpose> <command-line>`: Example command line and its purpose. Can be specified multiple times.
+#
+# *Returns*: None
+# ```
 bu_autohelp()
 {
     set +e
