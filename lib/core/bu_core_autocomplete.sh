@@ -968,10 +968,8 @@ __bu_autocomplete_completion_func_master_impl()
     local exit_code=$?
 
     # bu_log_tty "COMPREPLY=${COMPREPLY[*]}"
-    if ((${#COMPREPLY[@]}))
-    then
-        bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
-    elif [[ -n "$bu_autocomplete_hint" ]]
+    bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
+    if ((!${#COMPREPLY[@]})) && [[ -n "$bu_autocomplete_hint" ]]
     then
         compopt -o nosort # Bash 4.4+
         # https://stackoverflow.com/questions/70538848/simulate-bashs-compreply-response-without-actually-completing-it
