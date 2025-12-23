@@ -142,9 +142,9 @@ fi
 
 bu_run_args+=("${remaining_options[@]}")
 
-bu_run "${bu_run_args[@]}"
-
 bu_scope_pop_function
+
+bu_run "${bu_run_args[@]}"
 }
 
 __bu_bu_invoke_enhanced_command_main "$@"

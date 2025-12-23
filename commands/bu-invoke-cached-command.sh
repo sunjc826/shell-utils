@@ -117,9 +117,9 @@ fi
 
 bu_cached_execute_args+=("${remaining_options[@]}")
 
-bu_cached_execute "${bu_cached_execute_args[@]}"
-
 bu_scope_pop_function
+
+bu_cached_execute "${bu_cached_execute_args[@]}"
 }
 
 __bu_bu_invoke_cached_command_main "$@"

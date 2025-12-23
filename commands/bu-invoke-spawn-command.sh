@@ -118,9 +118,9 @@ fi
 
 bu_spawn_args+=("${remaining_options[@]}")
 
-bu_spawn "${bu_spawn_args[@]}"
-
 bu_scope_pop_function
+
+bu_spawn "${bu_spawn_args[@]}"
 }
 
 __bu_bu_invoke_spawn_command_main "$@"
