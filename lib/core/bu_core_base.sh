@@ -2974,7 +2974,7 @@ bu_run()
     fi
 
     case "$command_type" in
-    function)
+    function|alias)
         ;;
     file)
         if ! command_list[0]=$(command -v "$command_list")
@@ -3147,8 +3147,13 @@ bu_run()
             bu_log_err 'Logging not enabled, but --copy-logs-to specified'
             return 1
         fi
-        bu_dirname "$copy_logs_to"
-        bu_mkdir "$BU_RET"
+        if [[ -d "$copy_logs_to" ]]
+        then
+            copy_logs_to=$copy_logs_to/$command_base.log
+        else
+            bu_dirname "$copy_logs_to"
+            bu_mkdir "$BU_RET"
+        fi
         if [[ -n "$read_fd" ]]
         then
             cp /dev/fd/"$read_fd" "$copy_logs_to"

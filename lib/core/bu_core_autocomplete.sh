@@ -624,6 +624,12 @@ bu_autocomplete_get_completion_func()
 # ```
 bu_autocomplete_get_autocompletions()
 {
+    if (($# <= 1))
+    then
+        bu_compgen -A command "$1"
+        return
+    fi
+
     if ! bu_autocomplete_get_completion_func "$1"
     then
         __bu_autocomplete_completion_func_default "$1"
@@ -1239,10 +1245,6 @@ __bu_bind_fzf_autocomplete_impl()
     local move_cursor_to_end=$3
     local fzf_dynamic_reload=${4:-false}
     local command_line=($command_line_front)
-    if (( !${#command_line[*]} ))
-    then
-        return 0
-    fi
 
     local command_line_escaped=$(printf '%q ' "${command_line[@]}")
     local opt_space=
@@ -1252,20 +1254,31 @@ __bu_bind_fzf_autocomplete_impl()
         command_line+=("")
         opt_space="''"
     fi
-    
-    bu_autocomplete_initialize_current_completion_options "${command_line[0]}"
+
+    if ((!${#command_line[@]}))
+    then
+        command_line+=("")
+    fi
+
+    if ((${#command_line[@]} > 1))
+    then
+        bu_autocomplete_initialize_current_completion_options "${command_line[0]}"
+    fi
     # bu_print_var BU_COMPOPT_CURRENT_COMPLETION_OPTIONS > /dev/tty
     bu_autocomplete_get_autocompletions "${command_line[@]}" 2>/dev/null
     # bu_print_var BU_COMPOPT_CURRENT_COMPLETION_OPTIONS > /dev/tty
     local is_nospace=false
-    if [[ "${BU_COMPOPT_CURRENT_COMPLETION_OPTIONS[nospace]}" = -o ]]
-    then
-        is_nospace=true
-    fi
     local is_filenames=false
-    if [[ "${BU_COMPOPT_CURRENT_COMPLETION_OPTIONS[filenames]}" = -o ]]
+    if ((${#command_line[@]} > 1))
     then
-        is_filenames=true
+        if [[ "${BU_COMPOPT_CURRENT_COMPLETION_OPTIONS[nospace]}" = -o ]]
+        then
+            is_nospace=true
+        fi
+        if [[ "${BU_COMPOPT_CURRENT_COMPLETION_OPTIONS[filenames]}" = -o ]]
+        then
+            is_filenames=true
+        fi
     fi
 
     if "$is_filenames"
@@ -1451,4 +1464,9 @@ bu_read_word()
 BU_AUTOCOMPLETE_SPEC_DIRECTORY=(
     --sh compopt -o filenames sh--
     --stdout compgen -d stdout--
+)
+
+BU_AUTOCOMPLETE_SPEC_FILE=(
+    --sh compopt -o filenames sh--
+    --stdout compgen -f stdout--
 )
