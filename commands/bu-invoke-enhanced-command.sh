@@ -115,8 +115,13 @@ do
         # Print help
         is_help=true
         ;;
-    *)
+    ''|-*)
         bu_parse_error_enum "$1"
+        break
+        ;;
+    *)
+        bu_spawn_args+=(--)
+        options_finished=true
         break
         ;;
     esac
