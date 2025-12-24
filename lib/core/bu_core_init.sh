@@ -95,7 +95,8 @@ __bu_init_vscode()
             fi
         fi
 
-        bu_ext_source "$(code --locate-shell-integration-path bash)"
+        # Do we need this?
+        # bu_ext_source "$(code --locate-shell-integration-path bash)"
     fi
 }
 
