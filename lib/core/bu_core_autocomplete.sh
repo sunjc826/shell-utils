@@ -1222,14 +1222,20 @@ __bu_autocomplete_completion_func_source()
                 paths+=("$dir")
             fi
         done
-        mapfile -t COMPREPLY < <(
+        local -a path_shell_scripts
+        mapfile -t path_shell_scripts < <(
             find "${paths[@]}" \
                 -mindepth 1 -maxdepth 1 \
                 -type f \( -not -executable \) \
                 \( -name '*.sh' -or -name 'activate' -or -name '.bashrc' \) \
                 -printf "%P\n"
         )
-        bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
+
+        local -a local_files
+        compopt -o filenames
+        mapfile -t local_files < <(compgen -f "$cur_word")
+
+        bu_compgen -W "${path_shell_scripts[*]} ${local_files[*]}" -- "$cur_word"
     elif ((COMP_CWORD > 1))
     then
         local script
@@ -1245,7 +1251,7 @@ __bu_autocomplete_completion_func_source()
             return # Not covered
         fi
 
-        __bu_autocomplete_completion_func_master_impl "$script" "$cur_word" "$prev_word" "$((COMP_CWORD - 1))" "${COMP_WORDS[@]:1}"
+        __bu_autocomplete_completion_func_master_impl "$script" "$cur_word" "$prev_word" "$((COMP_CWORD - 1))" "" "${COMP_WORDS[@]:1}"
     fi
 }
 
