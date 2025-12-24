@@ -59,7 +59,7 @@ bu_autocomplete_initialize_current_completion_options()
     local has_name
     local -A completion_options=()
     # shellcheck disable=SC2046
-    __bu_autocomplete_collect_compopt $(compopt "$completion_command")
+    __bu_autocomplete_collect_compopt $(compopt "$completion_command" 2>/dev/null)
     bu_copy_associative_array completion_options BU_COMPOPT_CURRENT_COMPLETION_OPTIONS
     # bu_print_var BU_COMPOPT_CURRENT_COMPLETION_OPTIONS 
 }
@@ -1207,37 +1207,6 @@ __bu_terminal_get_pos()
     BU_RET=$((row-1))
 }
 
-__bu_fzf_current_pos()
-{
-    local lines
-    if ! lines=$(tput lines)
-    then
-        return 1
-    fi
-    __bu_terminal_get_pos
-    local row=$BU_RET
-    local halfway=$((lines / 2))
-    local start_row=$((lines - row))
-    export FZF_DEFAULT_OPTS
-
-    # Start fzf from the current row
-    if (( row < halfway ))
-    then
-        if (( row == 0 ))
-        then
-            row=1
-        fi
-        FZF_DEFAULT_OPTS+=" --reverse --margin $((row - 1)),0,0"
-    else
-        if (( start_row == 1 ))
-        then
-            start_row=0
-        fi
-        FZF_DEFAULT_OPTS+=" --no-reverse --margin 0,0,$start_row"
-    fi
-    fzf --tac "$@"
-}
-
 __bu_bind_fzf_autocomplete_impl()
 {
     local command_line_front=$1
@@ -1245,6 +1214,9 @@ __bu_bind_fzf_autocomplete_impl()
     local move_cursor_to_end=$3
     local fzf_dynamic_reload=${4:-false}
     local command_line=($command_line_front)
+
+    local num_rows=$((${#command_line_front} / COLUMNS)) # Depending on the length of the prompt, 
+    printf "$ %s%s%s" "$command_line_front" "${BU_TPUT_BLUE}${BU_TPUT_UNDERLINE}?${BU_TPUT_RESET}" "$command_line_back"
 
     local command_line_escaped=$(printf '%q ' "${command_line[@]}")
     local opt_space=
@@ -1308,7 +1280,20 @@ __bu_bind_fzf_autocomplete_impl()
             --bind "start:reload-sync(bu_print_autocompletions ${command_line_escaped} $opt_space 2>/dev/null)" \
             --bind "tab:replace-query+reload-sync(bu_print_autocompletions ${command_line_no_last[*]} '{q}' '' 2>/dev/null | sed 's'$'\001''^'$'\001'''{q}' '$'\001')"
         else
-            printf "%s\n" "${COMPREPLY[@]}" | uniq | __bu_fzf_current_pos --exact +s --sync -q "${command_line[-1]}" --header "$ ${command_line[*]}..."
+            # No need for tput lines and tput cols, bash already has $LINES and $COLUMNS
+            # margin is Top,Right,Bottom,Left
+            # Note that VSCode's completion suggestion box is 12 lines high, for fzf we also need to account for the finder info and search box
+            printf "%s\n" "${COMPREPLY[@]}" | uniq | \
+                fzf \
+                    --tac \
+                    --reverse \
+                    --height 20% --min-height 14 \
+                    --margin "0,0,0,$((READLINE_POINT % COLUMNS))" \
+                    --extended --exact -i \
+                    --no-sort \
+                    --sync \
+                    --cycle \
+                    --query "${command_line[-1]}"
         fi
     ) && [[ -n "$selected_command" ]]
     then
@@ -1350,6 +1335,12 @@ __bu_bind_fzf_autocomplete_impl()
         fi
         READLINE_LINE=$readline_line
         READLINE_POINT=$readline_point
+    fi
+    if ((num_rows))
+    then
+        tput cuu "$num_rows"
+    else
+        printf "\r"
     fi
 }
 
