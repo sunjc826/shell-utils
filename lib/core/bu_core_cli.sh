@@ -50,6 +50,9 @@ __bu_cli_command_type()
         else
             properties=no-default-found
         fi
+
+        # Cache it
+        BU_COMMAND_PROPERTIES[$bu_command,type]=$properties
     fi
     BU_RET=$properties
 }

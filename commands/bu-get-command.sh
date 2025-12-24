@@ -30,6 +30,7 @@ bu_run_log_command "$@"
 local verb_filter=
 local noun_filter=
 local namespace_filter=
+local type_filter=
 local is_allow_empty_verb=false
 local is_allow_empty_noun=false
 local is_allow_empty_namespace=false
@@ -68,6 +69,12 @@ do
     +ns|--allow-empty-namespace)
         # If a command has no associated namespace, it is also included in the results
         is_allow_empty_namespace=true
+        ;;
+    -t|--type)
+        # Type of the command
+        bu_parse_positional $# --enum function execute source alias enum--
+        bu_validate_positional "${!shift_by}"
+        type_filter=${!shift_by}
         ;;
     --)
         # Remaining options will be collected
@@ -108,6 +115,7 @@ local command
 local command_verb
 local command_noun
 local command_namespace
+local command_type
 
 local filtered_commands=()
 
@@ -135,6 +143,16 @@ do
     then
         command_namespace=${BU_COMMAND_PROPERTIES[$command,namespace]}
         if ! { { [[ -z "$command_namespace" ]] && "$is_allow_empty_namespace" ; } || [[ "$command_namespace" == $namespace_filter ]] ; }
+        then
+            continue
+        fi
+    fi
+
+    if [[ -n "$type_filter" ]]
+    then
+        __bu_cli_command_type "$command"
+        command_type=$BU_RET
+        if [[ "$command_type" != "$type_filter" ]]
         then
             continue
         fi

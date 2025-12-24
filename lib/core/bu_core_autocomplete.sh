@@ -1196,6 +1196,59 @@ __bu_autocomplete_completion_func_default()
     return 124
 }
 
+# ```
+# *Description*:
+# Completion func for the `source` builtin/function.
+# ```
+__bu_autocomplete_completion_func_source()
+{
+    local completion_command=$1
+    local cur_word=$2
+    local prev_word=$3
+    case "$completion_command" in
+    source|.) ;;
+    *) bu_log_err "Unexpected command[$completion_command]"; return 1;;
+    esac
+
+    if ((COMP_CWORD == 1))
+    then
+        local paths=()
+        bu_str_split : "$PATH"
+        local dir
+        for dir in "${BU_RET[@]}"
+        do
+            if [[ -d "$dir" ]]
+            then
+                paths+=("$dir")
+            fi
+        done
+        mapfile -t COMPREPLY < <(
+            find "${paths[@]}" \
+                -mindepth 1 -maxdepth 1 \
+                -type f \( -not -executable \) \
+                \( -name '*.sh' -or -name 'activate' -or -name '.bashrc' \) \
+                -printf "%P\n"
+        )
+        bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
+    elif ((COMP_CWORD > 1))
+    then
+        local script
+        if ! script=$(command -v -- "${COMP_WORDS[1]}")
+        then
+            return
+        fi
+        # Check if this script is covered by shell-utils
+        # String concatenation is not ideal, but it should do
+        # Alternatively we can have a hashset of the full command paths
+        if [[ " ${BU_COMMANDS[*]} " != *" $script "* ]]
+        then
+            return # Not covered
+        fi
+
+        __bu_autocomplete_completion_func_master_impl "$script" "$cur_word" "$prev_word" "$((COMP_CWORD - 1))" "${COMP_WORDS[@]:1}"
+    fi
+}
+
 # Taken from stackoverflow and github gist
 __bu_terminal_get_pos()
 {

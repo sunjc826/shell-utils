@@ -136,6 +136,8 @@ __bu_init_autocomplete()
         fi
     done
 
+    complete -F __bu_autocomplete_completion_func_source source
+    complete -F __bu_autocomplete_completion_func_source .
     complete -F __bu_autocomplete_completion_func_default -D
 }
 
