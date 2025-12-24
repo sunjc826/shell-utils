@@ -1341,7 +1341,7 @@ __bu_bind_fzf_autocomplete_impl()
                     --tac \
                     --reverse \
                     --height 20% --min-height 14 \
-                    --margin "0,0,0,$((READLINE_POINT % COLUMNS))" \
+                    --margin "0,0,0,$(((READLINE_POINT - ${#command_line[-1]}) % COLUMNS))" \
                     --extended --exact -i \
                     --no-sort \
                     --sync \
