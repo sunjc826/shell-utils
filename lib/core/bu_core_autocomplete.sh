@@ -1577,7 +1577,7 @@ __bu_bind_fzf_history()
 {
     touch "$BU_HISTORY"
     local history_result
-    if history_result=$(cat "$BU_HISTORY" | __bu_fzf_current_pos --exact +s --sync --header 'bu history')
+    if history_result=$(cat "$BU_HISTORY" | fzf --tac --exact +s --sync --header 'bu history')
     then
         READLINE_LINE=$history_result
         READLINE_POINT=${#READLINE_LINE}
