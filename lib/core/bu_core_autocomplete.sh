@@ -1321,8 +1321,16 @@ __bu_bind_fzf_autocomplete_impl()
         printf "\r%s" "$ps1_result"
     fi
 
+    local displayed_command_line_back=
+    if [[ "${command_line_back:0:1}" != ' ' ]]
+    then
+        displayed_command_line_back=${BU_TPUT_RED}${command_line_back/ /${BU_TPUT_RESET} }
+    else
+        displayed_command_line_back=$command_line_back
+    fi
+    displayed_command_line_back=${displayed_command_line_back/ / ${BU_TPUT_GREY}}
 
-    printf "%s%s%s" "${command_line_front}" "${BU_TPUT_BLUE}${BU_TPUT_UNDERLINE}?${BU_TPUT_RESET}" "$command_line_back"
+    printf "%s%s%s" "${command_line_front}" "${BU_TPUT_BLUE}${BU_TPUT_UNDERLINE}?${BU_TPUT_RESET}" "$displayed_command_line_back"
 
     local command_line_escaped=$(printf '%q ' "${command_line[@]}")
     local opt_space=

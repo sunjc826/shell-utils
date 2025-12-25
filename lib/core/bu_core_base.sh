@@ -118,6 +118,16 @@ fi
 exec {BU_PROC_FIFO_FD}<>"$BU_PROC_FIFO"
 exec {BU_PROC_FILE_FD}<>"$BU_PROC_FILE"
 
+# Detect if we are in WSL
+BU_ENV_IS_WSL=
+read -r < /proc/version
+if [[ "$REPLY" = *Microsoft* ]]
+then
+    BU_ENV_IS_WSL=true
+else
+    BU_ENV_IS_WSL=false
+fi
+
 # MARK: Conversion utilities
 
 # ```
@@ -230,7 +240,7 @@ bu_stdout_to_ret()
             outparam=
             "$@" >&"$BU_PROC_FIFO_FD"
             exit_code=$?
-            read -r "${outparam_name?}" <&"$BU_PROC_FIFO_FD"  
+            read -r "${outparam_name?}" <&"$BU_PROC_FIFO_FD"
         else
             outparam=$("$@")
             exit_code=$?
@@ -476,7 +486,9 @@ __bu_setup_tput()
     local -n outvar=$1
     shift
     local joined_cmd=$*
-    bu_cached_keyed_execute --str tput_"${joined_cmd// /_}" bu_stdout_to_ret --str tput "$@" 2>/dev/null
+    # Note that the --str --proc mode will lock up at the `read` if there is no newline.
+    # tput functions don't make a newline, so we avoid the --proc mode in all cases, WSL or not. 
+    bu_cached_keyed_execute --str tput_"${joined_cmd// /_}" bu_stdout_to_ret --no-proc --str tput "$@" 2>/dev/null
     outvar=$BU_RET
 }
 
@@ -492,6 +504,7 @@ BU_TPUT_DARK_BLUE=
 BU_TPUT_VIOLET=
 BU_TPUT_BLUE=
 BU_TPUT_WHITE=
+BU_TPUT_GREY=
 
 __bu_setup_tput BU_TPUT_UNDERLINE    smul
 __bu_setup_tput BU_TPUT_NO_UNDERLINE rmul
@@ -507,6 +520,7 @@ __bu_setup_tput BU_TPUT_DARK_BLUE    setaf 4
 __bu_setup_tput BU_TPUT_VIOLET       setaf 5
 __bu_setup_tput BU_TPUT_BLUE         setaf 6
 __bu_setup_tput BU_TPUT_WHITE        setaf 7
+__bu_setup_tput BU_TPUT_GREY         setaf 8
 fi
 
 
@@ -3215,16 +3229,6 @@ bu_run()
 }
 
 # MARK: VSCode
-
-# Detect if we are in WSL
-BU_ENV_IS_WSL=
-read -r < /proc/version
-if [[ "$REPLY" = *Microsoft* ]]
-then
-    BU_ENV_IS_WSL=true
-else
-    BU_ENV_IS_WSL=false
-fi
 
 bu_vscode_find_latest_server()
 {
