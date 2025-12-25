@@ -237,6 +237,38 @@ bu_basename()
     esac
 }
 
+# ```
+# *Description*:
+# Split a string into an array by a given separator
+#
+# *Params*:
+# - `$1`: Separator
+# - `$2`: String to split
+# - `$3` (optional): Name of the array to store the result in (default: `BU_RET`)
+#
+# *Returns*:
+# - `$BU_RET` or the array named in `$3`: Array of split entries
+#
+# *Examples*:
+# ```bash
+# bu_str_split , "a,b,c" # ${BU_RET[@]}=(a b c)
+# bu_str_split , "a,b,c" MY_ARR # ${MY_ARR[@]}=(a b c)
+# ```
+bu_str_split()
+{
+    local ifs=$1
+    local to_split=$2
+    local ret=${3:-BU_RET}
+    if [[ -z "$to_split" ]]
+    then
+        eval "$ret"=
+    else
+        local IFS=$ifs
+        # shellcheck disable=SC2229
+        read -ra "$ret" <<< "$to_split"
+    fi
+}
+
 if ((!${#BU_SOURCE_ONCE_CACHE[@]}))
 then
     declare -A -g BU_SOURCE_ONCE_CACHE=(
