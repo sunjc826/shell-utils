@@ -1258,12 +1258,28 @@ __bu_autocomplete_completion_func_source()
 # Taken from stackoverflow and github gist
 __bu_terminal_get_pos()
 {
-    local col row oldstty=$(stty -g </dev/tty)
+    local row col
+    local oldstty=$(stty -g </dev/tty)
     stty raw -echo min 0 </dev/tty
     printf '%b' '\033[6n' >/dev/tty
     IFS='[;' read -r -d R _ row col </dev/tty
     stty "$oldstty" </dev/tty
-    BU_RET=$((row-1))
+    BU_RET=("$row" "$col")
+    # IFS=';' read -s -d r -p $'\E[6n' row col >/dev/tty </dev/tty
+    # row="${row#*[}"
+    # BU_RET=("$row" "$col")
+}
+
+# Slight optimization over __bu_terminal_get_pos
+__bu_terminal_get_pos2()
+{
+    local row col
+    local oldstty=$1
+    stty raw -echo min 0 </dev/tty
+    printf '%b' '\033[6n' >/dev/tty
+    IFS='[;' read -r -d R _ row col </dev/tty
+    stty "$oldstty" </dev/tty
+    BU_RET=("$row" "$col")
 }
 
 __bu_bind_fzf_autocomplete_impl()
@@ -1273,9 +1289,40 @@ __bu_bind_fzf_autocomplete_impl()
     local move_cursor_to_end=$3
     local fzf_dynamic_reload=${4:-false}
     local command_line=($command_line_front)
+    tput sc
+    local oldstty=$(stty -g </dev/tty)
+    __bu_terminal_get_pos2 "$oldstty"
+    local row=${BU_RET[0]}
+    # This should always be 1 because
+    # readline always clears the current line
+    # (note: not necessarily the whole bash prompt if it spans multiple lines!)
+    # when invoking a func
+    local col=${BU_RET[1]}
 
-    local num_rows=$((${#command_line_front} / COLUMNS)) # Depending on the length of the prompt, 
-    printf "$ %s%s%s" "$command_line_front" "${BU_TPUT_BLUE}${BU_TPUT_UNDERLINE}?${BU_TPUT_RESET}" "$command_line_back"
+    # https://stackoverflow.com/questions/22322879/how-to-print-current-bash-prompt
+    # Note that @P is a Bash 4.4 feature.
+    local ps1_result
+    printf -v ps1_result "%s" "${PS1@P}"
+    printf "%s" "$ps1_result"
+    __bu_terminal_get_pos2 "$oldstty"
+    local row_with_ps1=${BU_RET[0]}
+    local col_with_ps1=${BU_RET[1]}
+
+    local ps1_num_rows=$((row_with_ps1 - row))
+
+    # This is a bit tricky, PS1 can end up spanning multiple lines
+    # Hence, we want to move the cursor up and then reinvoke PS1
+    # TODO: If the bash prompt is >= 3 lines long, we might need to erase some lines..., but that's quite unlikely
+    if ((ps1_num_rows > 0))
+    then
+        # Note that there will be some noticable flickering here as PS1 was printed in the wrong place up top.
+        tput el1 # We prefer this to printf "\r"
+        tput cuu "$((ps1_num_rows * 2))"
+        printf "\r%s" "$ps1_result"
+    fi
+
+
+    printf "%s%s%s" "${command_line_front}" "${BU_TPUT_BLUE}${BU_TPUT_UNDERLINE}?${BU_TPUT_RESET}" "$command_line_back"
 
     local command_line_escaped=$(printf '%q ' "${command_line[@]}")
     local opt_space=
@@ -1347,7 +1394,7 @@ __bu_bind_fzf_autocomplete_impl()
                     --tac \
                     --reverse \
                     --height 20% --min-height 14 \
-                    --margin "0,0,0,$(((READLINE_POINT - ${#command_line[-1]}) % COLUMNS))" \
+                    --margin "0,0,0,$(( ( col_with_ps1 - 3 + READLINE_POINT - ${#command_line[-1]} ) % COLUMNS))" \
                     --extended --exact -i \
                     --no-sort \
                     --sync \
@@ -1395,12 +1442,7 @@ __bu_bind_fzf_autocomplete_impl()
         READLINE_LINE=$readline_line
         READLINE_POINT=$readline_point
     fi
-    if ((num_rows))
-    then
-        tput cuu "$num_rows"
-    else
-        printf "\r"
-    fi
+    tput rc
 }
 
 # ```

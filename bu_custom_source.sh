@@ -270,6 +270,9 @@ BU_SOURCE_INLINE_OUTPUT=${BU_SOURCE_INLINE_OUTPUT:-}
 # bu_def_source
 # source my_script.sh --__bu-once --__bu-no-pushd
 # ```
+#
+# *Bug*:
+# Top level `declare` (without `-g`) in a script is broken because we are inside a function
 # ```
 bu_def_source()
 {
@@ -475,6 +478,9 @@ bu_source()
 # If the custom source function is defined, undefine it, use the builtin source to source the given file(s),
 # and then redefine the custom source function.
 # Otherwise, use the builtin source to source the given file(s).
+#
+# *Bug*:
+# Top level `declare` (without `-g`) in a script is broken because we are inside a function
 # ```
 bu_ext_source()
 {
