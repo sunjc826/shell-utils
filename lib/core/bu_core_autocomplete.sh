@@ -1282,6 +1282,68 @@ __bu_terminal_get_pos2()
     BU_RET=("$row" "$col")
 }
 
+__bu_fzf_print_header()
+{
+    local proc_tmp_dir=$1
+    local fzf_selection=$2
+    shift 2
+
+    local prev_fzf_selections=()
+    mapfile -t prev_fzf_selections <"$proc_tmp_dir"/fzf_dynamic_autocomplete.txt
+
+    printf "%s " "${prev_fzf_selections[@]}" "$fzf_selection"
+}
+export -f __bu_fzf_print_header
+
+__bu_fzf_print_autocompletion()
+{
+    # Not sure why bash -ic ... freezes, we need to assume interactive mode to more effectively replicate the current shell
+    # Note: On Ubuntu, in a non-interactive shell, the default .bashrc will just early return. No point sourcing it.
+    # source "$HOME"/.bashrc &>/dev/null
+
+    if [[ -f /usr/share/bash-completion/bash_completion ]]; then
+        . /usr/share/bash-completion/bash_completion
+    elif [[ -f /etc/bash_completion ]]; then
+        . /etc/bash_completion
+    fi
+
+    source "$BU_DIR"/bu_entrypoint.sh &>/dev/null
+    # {
+    #     local i
+    #     echo "$# arg(s): $*"
+    #     for ((i=0;i<=$#;i++)); do
+    #         printf "%s: %s\n" "$i" "${!i}"
+    #     done
+    # } >> "$BU_LOG_DIR"/autocomplete_debug.log
+
+    local proc_tmp_dir=$1
+    local fzf_selection=$2
+    shift 2
+
+    local prev_fzf_selections=()
+    mapfile -t prev_fzf_selections <"$proc_tmp_dir"/fzf_dynamic_autocomplete.txt
+    printf "%s\n" "$fzf_selection" >> "$proc_tmp_dir"/fzf_dynamic_autocomplete.txt
+
+    local args=("$@")
+    args+=("${prev_fzf_selections[@]}" "$fzf_selection" "")
+    #printf "'%s' " bu_autocomplete_print_autocompletions "${args[@]}" >> "$BU_LOG_DIR"/autocomplete_debug.log
+    bu_autocomplete_print_autocompletions "${args[@]}" #2>> "$BU_LOG_DIR"/autocomplete_debug.log
+}
+# We don't really need this export unless we need to do logging earlier than the sourcing of bu_entrypoint.sh
+export BU_LOG_DIR
+export -f __bu_fzf_print_autocompletion
+
+__bu_fzf_finish()
+{
+    local proc_tmp_dir=$1
+
+    local prev_fzf_selections=()
+    mapfile -t prev_fzf_selections <"$proc_tmp_dir"/fzf_dynamic_autocomplete.txt
+
+    printf "%s " "${prev_fzf_selections[@]}"
+}
+export -f __bu_fzf_finish
+
 __bu_bind_fzf_autocomplete_impl()
 {
     local command_line_front=$1
@@ -1389,12 +1451,33 @@ __bu_bind_fzf_autocomplete_impl()
     if selected_command=$(
         if "$fzf_dynamic_reload"
         then
-            # TODO: (Not important) This probably doesn't work yet. Anyway this is too complex and not that useful.
-            local command_line_no_last=$("${command_line[@]}")
-            unset command_line_no_last[-1]
-            __bu_fzf_current_pos --delimiter ' ' --exact +s --sync -q "${command_line[-1]}" --header "$ ${command_line[*]}..." \
-            --bind "start:reload-sync(bu_print_autocompletions ${command_line_escaped} $opt_space 2>/dev/null)" \
-            --bind "tab:replace-query+reload-sync(bu_print_autocompletions ${command_line_no_last[*]} '{q}' '' 2>/dev/null | sed 's'$'\001''^'$'\001'''{q}' '$'\001')"
+            # Initial design:
+            # - tab: selects a suggestion, then moves on to the next word
+            # - enter: selects a suggestion and quits (i.e. almost same as the default accept behavior)
+            # - change: no additional handling needed
+
+            local command_line_no_last=("${command_line[@]}")
+            if ((${#command_line_no_last[@]}))
+            then
+                unset command_line_no_last[-1]
+            fi
+            : > "$BU_PROC_TMP_DIR"/fzf_dynamic_autocomplete.txt
+            printf "%s\n" "${COMPREPLY[@]}" | uniq | \
+                fzf \
+                    --header '' \
+                    --tac \
+                    --reverse \
+                    --height 20% --min-height 14 \
+                    --margin "0,0,0,$(( ( col_with_ps1 - 3 + READLINE_POINT - ${#command_line[-1]} ) % COLUMNS))" \
+                    --extended --exact -i \
+                    --no-sort \
+                    --sync \
+                    --cycle \
+                    --query "${command_line[-1]}" \
+                    --bind "tab:clear-query+transform-header(bash -c '__bu_fzf_print_header $BU_PROC_TMP_DIR {} ${command_line_no_last[*]}')+reload-sync(bash -c '__bu_fzf_print_autocompletion $BU_PROC_TMP_DIR {} ${command_line_no_last[*]}')" \
+                    --bind "enter:transform-query(bash -c '__bu_fzf_finish $BU_PROC_TMP_DIR')+print-query"
+
+            rm -f "$BU_PROC_TMP_DIR"/fzf_dynamic_autocomplete.txt
         else
             # No need for tput lines and tput cols, bash already has $LINES and $COLUMNS
             # margin is Top,Right,Bottom,Left
@@ -1473,7 +1556,12 @@ __bu_bind_fzf_autocomplete_impl()
 # ```
 __bu_bind_fzf_autocomplete()
 {
-    __bu_bind_fzf_autocomplete_impl "${READLINE_LINE:0:$READLINE_POINT}" "${READLINE_LINE:$READLINE_POINT}" false
+    __bu_bind_fzf_autocomplete_impl "${READLINE_LINE:0:$READLINE_POINT}" "${READLINE_LINE:$READLINE_POINT}" false false
+}
+
+__bu_bind_fzf_autocomplete_dynamic()
+{
+    __bu_bind_fzf_autocomplete_impl "${READLINE_LINE:0:$READLINE_POINT}" "${READLINE_LINE:$READLINE_POINT}" false true
 }
 
 # ```

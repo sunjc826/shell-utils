@@ -79,4 +79,5 @@ declare -A -g BU_KEY_BINDINGS=(
     ['\ea']="__bu_bind_fzf_history"
     ['\ex']="__bu_bind_fzf_autocomplete"
     ['\C-x']="__bu_bind_fzf_autocomplete"
+    ['\C- ']="__bu_bind_fzf_autocomplete_dynamic"
 )

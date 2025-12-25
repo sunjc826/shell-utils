@@ -30,7 +30,9 @@ Features:
 
 Other features:
 - Useful [library functions](#library) aiding scripting, all "namespaced" under the `bu_` prefix
-- Useful key bindings like Ctrl-X / Alt-X which invoke accurate `fzf` autocompletion.
+- Useful key bindings like 
+  - Ctrl-X / Alt-X which invoke very accurate (`compopt` is taken into account) `fzf` autocompletion.
+  - Ctrl-Space which invokes accurate (work-in-progress on dealing with `compopt` correctly) dynamic `fzf` autocompletion.
 
 Examples:
 - [bu-run-example.sh](./examples/commands/bu-run-example.sh)
