@@ -1382,6 +1382,8 @@ __bu_bind_fzf_autocomplete_impl()
             done
         fi
     fi
+    __bu_terminal_get_pos2 "$oldstty"
+    local row_before_fzf=${BU_RET[0]}
 
     local selected_command
     if selected_command=$(
@@ -1450,7 +1452,14 @@ __bu_bind_fzf_autocomplete_impl()
         READLINE_LINE=$readline_line
         READLINE_POINT=$readline_point
     fi
-    tput rc
+    __bu_terminal_get_pos2 "$oldstty"
+    local row_after_fzf=${BU_RET[0]}
+    # fzf might shift our command line up if there isn't enough space at the bottom
+    # If fzf shifts, then there is no need to restore the cursor
+    if ((row_before_fzf == row_after_fzf))
+    then
+        tput rc
+    fi
 }
 
 # ```
