@@ -1828,7 +1828,7 @@ bu_sync_cycle_file()
 
     if "$unique"
     then
-        tac "$filepath" | awk '! seen[$0] { seen[0] = 1; print $0; }' | tac
+        tac "$filepath" | awk '! seen[$0] { seen[$0] = 1; print $0; }' | tac
     else
         uniq "$filepath"
     fi |\
