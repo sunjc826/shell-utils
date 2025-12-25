@@ -20,7 +20,7 @@ function __bu_source_modules()
 {
     local paths=()
     local path
-    bu_str_split : BU_MODULE_PATH paths
+    bu_str_split : "$BU_MODULE_PATH" paths
     for path in "${paths[@]}"
     do
         # We allow empty paths, in which case we simply ignore them
