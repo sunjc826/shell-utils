@@ -79,5 +79,11 @@ declare -A -g BU_KEY_BINDINGS=(
     ['\ea']="__bu_bind_fzf_history"
     ['\ex']="__bu_bind_fzf_autocomplete"
     ['\C-x']="__bu_bind_fzf_autocomplete"
+    # This binding works on Bash 5.2,
+    # it may fail on 5.1 and older
+    # due to some readline limitations.
+    # Something about key binding sequences of length greater than 2.
     ['\C- ']="__bu_bind_fzf_autocomplete_dynamic"
+    # Alternative binding
+    ['\ec']="__bu_bind_fzf_autocomplete_dynamic"
 )
