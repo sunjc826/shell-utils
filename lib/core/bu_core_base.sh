@@ -506,10 +506,22 @@ BU_TPUT_BLUE=
 BU_TPUT_WHITE=
 BU_TPUT_GREY=
 
+BU_TPUT_VSCODE_DARK_BLUE=
+BU_TPUT_VSCODE_BLACK=
+BU_TPUT_VSCODE_PINK=
+BU_TPUT_VSCODE_BLUE=
+BU_TPUT_VSCODE_RED=
+BU_TPUT_VSCODE_YELLOW=
+BU_TPUT_VSCODE_WHITE=
+BU_TPUT_VSCODE_ORANGE=
+BU_TPUT_VSCODE_GREEN=
+BU_TPUT_VSCODE_DARK_GREEN=
+
 __bu_setup_tput BU_TPUT_UNDERLINE    smul
 __bu_setup_tput BU_TPUT_NO_UNDERLINE rmul
 __bu_setup_tput BU_TPUT_BOLD         bold
-if tput colors &>/dev/null
+BU_TPUT_COLORS=$(tput colors)
+if ((BU_TPUT_COLORS > 0)) 
 then
 __bu_setup_tput BU_TPUT_RESET        sgr0
 __bu_setup_tput BU_TPUT_BLACK        setaf 0
@@ -520,7 +532,36 @@ __bu_setup_tput BU_TPUT_DARK_BLUE    setaf 4
 __bu_setup_tput BU_TPUT_VIOLET       setaf 5
 __bu_setup_tput BU_TPUT_BLUE         setaf 6
 __bu_setup_tput BU_TPUT_WHITE        setaf 7
+fi
+if ((BU_TPUT_COLORS >= 16))
+then
 __bu_setup_tput BU_TPUT_GREY         setaf 8
+fi
+if ((BU_TPUT_COLORS >= 256))
+then
+# This is the VSCode Dark+ theme, hex color scheme converted to xterm256 colors
+# Conversion done with https://gist.github.com/chrisdiana/c71f224626b5b9516bdb
+__bu_setup_tput BU_TPUT_VSCODE_DARK_BLUE  setaf 74
+__bu_setup_tput BU_TPUT_VSCODE_BLACK      setaf 16
+__bu_setup_tput BU_TPUT_VSCODE_PINK       setaf 175
+__bu_setup_tput BU_TPUT_VSCODE_BLUE       setaf 153
+__bu_setup_tput BU_TPUT_VSCODE_RED        setaf 167
+__bu_setup_tput BU_TPUT_VSCODE_YELLOW     setaf 187
+__bu_setup_tput BU_TPUT_VSCODE_WHITE      setaf 188
+__bu_setup_tput BU_TPUT_VSCODE_ORANGE     setaf 174
+__bu_setup_tput BU_TPUT_VSCODE_GREEN      setaf 151
+__bu_setup_tput BU_TPUT_VSCODE_DARK_GREEN setaf 65
+else
+BU_TPUT_VSCODE_DARK_BLUE=$BU_TPUT_BLUE
+BU_TPUT_VSCODE_BLACK=$BU_TPUT_GREY
+BU_TPUT_VSCODE_PINK=$BU_TPUT_RED
+BU_TPUT_VSCODE_BLUE=$BU_TPUT_BLUE
+BU_TPUT_VSCODE_RED=$BU_TPUT_RED
+BU_TPUT_VSCODE_YELLOW=$BU_TPUT_YELLOW
+BU_TPUT_VSCODE_WHITE=$BU_TPUT_WHITE
+BU_TPUT_VSCODE_ORANGE=$BU_TPUT_YELLOW
+BU_TPUT_VSCODE_GREEN=$BU_TPUT_GREEN
+BU_TPUT_VSCODE_DARK_GREEN=$BU_TPUT_GREEN
 fi
 
 
@@ -599,7 +640,7 @@ __bu_log()
 # ```
 bu_assert_err()
 {
-    __bu_log "$BU_TPUT_RED" "$BU_LOG_LVL_ERR" ERR "$@"
+    __bu_log "$BU_TPUT_VSCODE_RED" "$BU_LOG_LVL_ERR" ERR "$@"
     return 1
 }
 
@@ -613,7 +654,7 @@ bu_assert_err()
 # ```
 bu_log_err()
 {
-    __bu_log "$BU_TPUT_RED" "$BU_LOG_LVL_ERR" ERR "$@"
+    __bu_log "$BU_TPUT_VSCODE_RED" "$BU_LOG_LVL_ERR" ERR "$@"
 }
 
 # ```
@@ -626,7 +667,7 @@ bu_log_err()
 # ```
 bu_log_warn() 
 {
-    __bu_log "$BU_TPUT_YELLOW" "$BU_LOG_LVL_WARN" WARN "$@"
+    __bu_log "$BU_TPUT_VSCODE_ORANGE" "$BU_LOG_LVL_WARN" WARN "$@"
 }
 
 # ```
@@ -639,7 +680,7 @@ bu_log_warn()
 # ```
 bu_log_info() 
 { 
-    __bu_log "$BU_TPUT_BLUE" "$BU_LOG_LVL_INFO" INFO "$@"
+    __bu_log "$BU_TPUT_VSCODE_YELLOW" "$BU_LOG_LVL_INFO" INFO "$@"
 }
 
 # ```
@@ -652,7 +693,7 @@ bu_log_info()
 # ```
 bu_log_debug()
 { 
-    __bu_log "$BU_TPUT_VIOLET" "$BU_LOG_LVL_DEBUG" DEBUG "$@"
+    __bu_log "$BU_TPUT_VSCODE_DARK_GREEN" "$BU_LOG_LVL_DEBUG" DEBUG "$@"
 }
 
 # ```

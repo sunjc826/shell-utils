@@ -1448,6 +1448,45 @@ __bu_bind_fzf_autocomplete_impl()
     local row_before_fzf=${BU_RET[0]}
 
     local selected_command
+
+    local fzf_opts=(
+        --height 20% --min-height 14
+        --extended --exact -i
+        --cycle
+    )
+    local fzf_colors=(
+        #   fg         Text
+        #   bg         Background
+        #   preview-fg Preview window text
+        #   preview-bg Preview window background
+        #   hl         Highlighted substrings
+        #   fg+        Text (current line)
+        #   bg+        Background (current line)
+        #   gutter     Gutter on the left (defaults to bg+)
+        #   hl+        Highlighted substrings (current line)
+        #   info       Info
+        #   border     Border of the preview window and horizontal separators (--border)
+        #   prompt     Prompt
+        #   pointer    Pointer to the current line
+        #   marker     Multi-select marker
+        #   spinner    Streaming input indicator
+        #   header     Header
+        'fg:#569CD6' # VSCode Dark+ dark blue text, approx xterm 74
+        'bg:#1F1F1F' # VSCode Dark+ background, approx xterm 16
+        'hl:#C586C0' # VSCode Dark+ pink text, approx xterm 175
+        'fg+:#9CDCFE' # VSCode Dark+ blue text, approx xterm 153
+        'hl+:#D16969' # VSCode Dark+ red text, approx xterm 167
+        'header:#DCDCAA' # VSCode Dark+ function text, approx xterm 187
+        'prompt:#DCDCAA'
+        'info:#B5CEA8'
+        'pointer:#CCCCCC' # VSCode Dark+ regular text, approx xterm 188
+        'header:#CCCCCC'
+        'border:#CCCCCC'
+        'gutter:#1F1F1F'
+    )
+    bu_list_join , "${fzf_colors[@]}"
+    fzf_opts+=(--color="$BU_RET")
+
     if selected_command=$(
         if "$fzf_dynamic_reload"
         then
@@ -1467,13 +1506,11 @@ __bu_bind_fzf_autocomplete_impl()
                     --header '' \
                     --tac \
                     --reverse \
-                    --height 20% --min-height 14 \
                     --margin "0,0,0,$(( ( col_with_ps1 - 3 + READLINE_POINT - ${#command_line[-1]} ) % COLUMNS))" \
-                    --extended --exact -i \
                     --no-sort \
                     --sync \
-                    --cycle \
                     --query "${command_line[-1]}" \
+                    "${fzf_opts[@]}" \
                     --bind "tab:clear-query+transform-header(bash -c '__bu_fzf_print_header $BU_PROC_TMP_DIR {} ${command_line_no_last[*]}')+reload-sync(bash -c '__bu_fzf_print_autocompletion $BU_PROC_TMP_DIR {} ${command_line_no_last[*]}')" \
                     --bind "enter:transform-query(bash -c '__bu_fzf_finish $BU_PROC_TMP_DIR')+print-query"
 
@@ -1486,13 +1523,11 @@ __bu_bind_fzf_autocomplete_impl()
                 fzf \
                     --tac \
                     --reverse \
-                    --height 20% --min-height 14 \
                     --margin "0,0,0,$(( ( col_with_ps1 - 3 + READLINE_POINT - ${#command_line[-1]} ) % COLUMNS))" \
-                    --extended --exact -i \
                     --no-sort \
                     --sync \
-                    --cycle \
-                    --query "${command_line[-1]}"
+                    --query "${command_line[-1]}" \
+                    "${fzf_opts[@]}"
         fi
     ) && [[ -n "$selected_command" ]]
     then
