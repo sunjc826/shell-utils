@@ -1442,6 +1442,7 @@ __bu_bind_fzf_autocomplete_impl()
                     COMPREPLY[i]+=/
                 fi
             done
+            mapfile -t COMPREPLY < <(printf "%q\n" "${COMPREPLY[@]}")
         fi
     fi
     __bu_terminal_get_pos2 "$oldstty"
