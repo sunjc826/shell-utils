@@ -1234,7 +1234,7 @@ __bu_autocomplete_completion_func_source()
         then
             return
         fi
-        # Check if this script is covered by shell-utils
+        # Check if this script is covered by bash-utils
         # String concatenation is not ideal, but it should do
         # Alternatively we can have a hashset of the full command paths
         if [[ " ${BU_COMMANDS[*]} " != *" $script "* ]]

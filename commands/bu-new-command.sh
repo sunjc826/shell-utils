@@ -96,7 +96,7 @@ if "$is_help"
 then
     bu_autohelp \
         --description "
-Create a shell-utils compatible \
+Create a bash-utils compatible \
 (can be used with ${BU_TPUT_BOLD}${BU_CLI_COMMAND_NAME}${BU_TPUT_RESET}) \
 script using a template
 " \

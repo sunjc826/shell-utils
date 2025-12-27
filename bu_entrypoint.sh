@@ -7,7 +7,7 @@ source ./bu_custom_source.sh --__bu-once
 source ./lib/core/bu_core_user_defined.sh --__bu-once
 
 # The BU_MODULE_PATH is the only variable that should be needed to get all external "libraries"
-# i.e. shell-utils related libraries setup.
+# i.e. bash-utils related libraries setup.
 # In particular, all the callbacks can be setup in these scripts
 # To make it export-friendly, we will use a colon-separated string rather than an array.
 if [[ -z "$BU_MODULE_PATH" ]]

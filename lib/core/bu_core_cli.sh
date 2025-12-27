@@ -68,7 +68,7 @@ __bu_cli_command_type()
 __bu_cli_help()
 {
     echo "${BU_TPUT_BOLD}${BU_TPUT_DARK_BLUE}Help for ${BU_CLI_COMMAND_NAME}${BU_TPUT_RESET}"
-    echo "${BU_CLI_COMMAND_NAME} is the Bash CLI implemented by shell-utils"
+    echo "${BU_CLI_COMMAND_NAME} is the Bash CLI implemented by bash-utils"
 
     local key
     local value
