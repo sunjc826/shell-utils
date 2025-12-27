@@ -609,15 +609,26 @@ bu_autocomplete_get_completion_func()
 # - `...`: All parameters are treated as the command line to get autocompletions for
 #
 # *Returns*:
+# - `${BU_RET_MAP[has_ansi_colors]}`: Whether the command is "ansi aware"
 # - `${COMPREPLY[@]}`: List of autocompletions
 # ```
 bu_autocomplete_get_autocompletions()
 {
+    local BU_AUTOCOMPLETE_ACCEPT_ANSI_COLORS=false
+    case "$1" in
+    --accept-ansi-colors)
+        BU_AUTOCOMPLETE_ACCEPT_ANSI_COLORS=true
+        shift
+        ;;
+    esac
+
     if (($# <= 1))
     then
         bu_compgen -A command "$1"
         return
     fi
+
+    local has_ansi_colors=false
 
     if ! bu_autocomplete_get_completion_func "$1"
     then
@@ -647,6 +658,7 @@ bu_autocomplete_get_autocompletions()
         "COMP_POINT[$COMP_POINT] COMP_CWORD[$COMP_CWORD]"
     "$completion_func" "$completion_command" "$cur_word" "$prev_word" &>/dev/null
     local ret=$?
+    has_ansi_colors=${BU_RET_MAP[has_ansi_colors]:-false}
     for (( tries = 3; ret == 124 && tries > 0; tries-- ))
     do
         if ! bu_autocomplete_get_completion_func "$1"
@@ -655,9 +667,14 @@ bu_autocomplete_get_autocompletions()
             return 1
         fi
         completion_func=$BU_RET
+
         "$completion_func" "$completion_command" "$cur_word" "$prev_word" &>/dev/null
         ret=$?
+        has_ansi_colors=${BU_RET_MAP[has_ansi_colors]:-false}
     done
+    declare -g -A BU_RET_MAP=(
+        [has_ansi_colors]=$has_ansi_colors
+    )
     return "$ret"
 }
 
@@ -782,7 +799,10 @@ __bu_autocomplete_completion_func_master_helper()
     local script_lineno
     local option
     local -a sub_args
+    local -a stdout
     local -a opt_cur_word=("$cur_word")
+    local current_ansi_color=
+    local reset_ansi_color=
     local BU_RET
     local exit_code=$BU_AUTOCOMPLETE_EXIT_CODE_SUCCESS
     while ((i<${#args[@]}))
@@ -790,12 +810,24 @@ __bu_autocomplete_completion_func_master_helper()
         shift_by=1
         case "${args[i]}" in
         :*)
-            # Explicit literal
-            COMPREPLY+=("${args[i]:1}")
+            # Explicit literal, syntax inspired by Ruby symbols
+            COMPREPLY+=("${current_ansi_color}${args[i]:1}${reset_ansi_color}")
             ;;
         --hint)
             bu_autocomplete_hint=${args[i+1]}
             shift_by=2
+            ;;
+        -a|--ansi)
+            if "$BU_AUTOCOMPLETE_ACCEPT_ANSI_COLORS"
+            then
+                current_ansi_color=${args[i+1]}
+                reset_ansi_color=$BU_TPUT_RESET
+            fi
+            shift_by=2
+            ;;
+        +a|--no-ansi)
+            current_ansi_color=
+            reset_ansi_color=
             ;;
         -c|--append-cur-word)
             opt_cur_word=("$cur_word")
@@ -841,7 +873,7 @@ __bu_autocomplete_completion_func_master_helper()
                 # TODO: Handle the case where an option is allowed to be given more than once.
                 for option in "${BU_RET[@]}"; do
                     case "${bu_parsed_multiselect_arguments[$option]}" in
-                    '') COMPREPLY+=("$option") ;;
+                    '') COMPREPLY+=("${current_ansi_color}${option}${reset_ansi_color}") ;;
                     1) continue ;;
                     esac
                 done
@@ -865,15 +897,33 @@ __bu_autocomplete_completion_func_master_helper()
             sub_args=("${args[@]:i+1:offset-1}")
             case "${args[i]}" in
             --enum)
+                if [[ -n "$current_ansi_color" ]]
+                then
+                    sub_args=("${sub_args[@]/#/$current_ansi_color}")
+                    sub_args=("${sub_args[@]/%/$reset_ansi_color}")
+                fi
                 COMPREPLY+=("${sub_args[@]}")
                 ;;
             --stdout)
                 # shellcheck disable=SC2207
-                COMPREPLY+=($("${sub_args[@]}" "${opt_cur_word[@]}"))
+                if [[ -n "$current_ansi_color" ]]
+                then
+                    stdout=($("${sub_args[@]}" "${opt_cur_word[@]}"))
+                    stdout=("${stdout[@]/#/$current_ansi_color}")
+                    stdout=("${stdout[@]/%/$reset_ansi_color}")
+                    COMPREPLY+=("${stdout[@]}")
+                else
+                    COMPREPLY+=($("${sub_args[@]}" "${opt_cur_word[@]}"))
+                fi
                 ;;
             --ret)
                 if "${sub_args[@]}" "${opt_cur_word[@]}"
                 then
+                    if [[ -n "$current_ansi_color" ]]
+                    then
+                        BU_RET=("${BU_RET[@]/#/$current_ansi_color}")
+                        BU_RET=("${BU_RET[@]/%/$reset_ansi_color}")
+                    fi
                     COMPREPLY+=("${BU_RET[@]}")
                 fi
                 ;;
@@ -900,7 +950,7 @@ __bu_autocomplete_completion_func_master_helper()
                 ;;
             "$BU_AUTOCOMPLETE_EXIT_CODE_FAIL")
                 # If all else fails, treat the arg like a literal
-                COMPREPLY+=("${args[i]}")
+                COMPREPLY+=("${current_ansi_color}${args[i]}${reset_ansi_color}")
                 ;;
             esac
             ;;
@@ -1404,7 +1454,15 @@ __bu_bind_fzf_autocomplete_impl()
         bu_autocomplete_initialize_current_completion_options "${command_line[0]}"
     fi
     # bu_print_var BU_COMPOPT_CURRENT_COMPLETION_OPTIONS > /dev/tty
-    bu_autocomplete_get_autocompletions "${command_line[@]}" 2>/dev/null
+    bu_autocomplete_get_autocompletions --accept-ansi-colors "${command_line[@]}"
+    if (($? && !${#COMPREPLY[@]}))
+    then
+        tput rc
+        bu_log_err "bu_autocomplete_get_autocompletions failed"
+        return 1
+    fi
+    
+    local completion_func_has_ansi_colors=${BU_RET_MAP[has_ansi_colors]}
     # bu_print_var BU_COMPOPT_CURRENT_COMPLETION_OPTIONS > /dev/tty
     local is_nospace=false
     local is_filenames=false
@@ -1420,6 +1478,7 @@ __bu_bind_fzf_autocomplete_impl()
         fi
     fi
 
+    local is_ansi=$completion_func_has_ansi_colors
     if "$is_filenames"
     then
         local i
@@ -1434,6 +1493,18 @@ __bu_bind_fzf_autocomplete_impl()
                 fi
             done
             mapfile -t COMPREPLY < <(printf "%q\n" "${COMPREPLY[@]}")
+
+            # Get some ansi color codes in to make the world more colorful
+            # - If completion func already provides ansi colors, then don't proceed 
+            # - Heuristic, if 2 elements (the first and the last) of COMPREPLY
+            #   exist relative to our current working directory, then we assume
+            #   that all the remaining elements also exist. We could strengthen the
+            #   heuristic by testing more files.
+            if ! "$completion_func_has_ansi_colors" && ((${#COMPREPLY[@]})) && [[ -e ${COMPREPLY[0]} && -e ${COMPREPLY[-1]} ]]
+            then
+                mapfile -t COMPREPLY < <(ls -d --color -- "${COMPREPLY[@]}")
+                is_ansi=true
+            fi
         fi
     fi
     __bu_terminal_get_pos2 "$oldstty"
@@ -1452,6 +1523,12 @@ __bu_bind_fzf_autocomplete_impl()
         --margin "0,0,0,$(( ( col_with_ps1 - 3 + READLINE_POINT - ${#command_line[-1]} ) % COLUMNS))"
         --query "${command_line[-1]}"
     )
+
+    if "$is_ansi"
+    then
+        fzf_opts+=(--ansi)
+    fi
+
     local fzf_colors=(
         #   fg         Text
         #   bg         Background
