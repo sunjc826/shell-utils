@@ -587,7 +587,7 @@ bu_parse_error_argn()
 bu_autocomplete_get_completion_func()
 {
     local completion_for=$1
-    bu_stdout_to_ret complete -p "$completion_for"
+    bu_stdout_to_ret complete -p "$completion_for" 2>/dev/null
     case "$BU_RET" in
     *' -F '*)
         # Strip everything before (inclusive of) -F
