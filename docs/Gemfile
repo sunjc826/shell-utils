@@ -12,6 +12,9 @@ source "https://rubygems.org"
 gem "minima", "~> 2.5"
 # If you want to use GitHub Pages, remove the "gem "jekyll"" above and
 # uncomment the line below. To upgrade, run `bundle update github-pages`.
+# https://github.com/jekyll/jekyll/issues/5265#issuecomment-241267253
+# When using github-pages gem instead of jekyll, safe mode is always true, no way around it.
+# That means no local _plugins. 
 gem "github-pages", "~> 232", group: :jekyll_plugins
 # If you have any plugins, put them here!
 group :jekyll_plugins do

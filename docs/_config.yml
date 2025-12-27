@@ -58,4 +58,5 @@ description: Bash CLI framework
 #   - vendor/ruby/
 
 exclude:
+  - test/
   - unused_index.markdown
