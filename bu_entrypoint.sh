@@ -3,6 +3,15 @@ case "${BASH_SOURCE}" in
 *) pushd . &>/dev/null ;; # This seems like duplicate work but we need to match the popd later
 esac
 
+BU_REPO_DIR_PREV=$BU_REPO_DIR
+BU_REPO_SHA1_PREV=$BU_REPO_SHA1
+BU_REPO_DIR=$PWD
+BU_REPO_SHA1=$(git rev-parse @)
+if [[ -n "$BU_REPO_SHA1_PREV" && "$BU_REPO_SHA1" != "$BU_REPO_SHA1_PREV" ]]
+then
+    echo "WARN    A different bash-utils version is being activated: Prev[$BU_REPO_SHA1_PREV@$BU_REPO_DIR_PREV] Cur[$BU_REPO_SHA1@$BU_REPO_DIR]" >&2
+fi
+
 source ./bu_custom_source.sh --__bu-once
 source ./lib/core/bu_core_user_defined.sh --__bu-once
 
