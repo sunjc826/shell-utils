@@ -1393,36 +1393,17 @@ __bu_bind_fzf_autocomplete_impl()
     local fzf_dynamic_reload=${4:-false}
     local command_line=($command_line_front)
     tput sc
-    local oldstty=$(stty -g </dev/tty)
-    __bu_terminal_get_pos2 "$oldstty"
-    local row=${BU_RET[0]}
-    # This should always be 1 because
-    # readline always clears the current line
-    # (note: not necessarily the whole bash prompt if it spans multiple lines!)
-    # when invoking a func
-    local col=${BU_RET[1]}
-
     # https://stackoverflow.com/questions/22322879/how-to-print-current-bash-prompt
     # Note that @P is a Bash 4.4 feature.
-    local ps1_result
-    printf -v ps1_result "%s" "${PS1@P}"
-    printf "%s" "$ps1_result"
-    __bu_terminal_get_pos2 "$oldstty"
-    local row_with_ps1=${BU_RET[0]}
-    local col_with_ps1=${BU_RET[1]}
+    local ps1_last_row=$(tail -n 1 <<<"${PS1##*\\n}")
+    printf "%s" "${ps1_last_row@P}" # Let's print this out ASAP to reduce the duration of flicker (readline will erase the current line during a binding)
 
-    local ps1_num_rows=$((row_with_ps1 - row))
-
-    # This is a bit tricky, PS1 can end up spanning multiple lines
-    # Hence, we want to move the cursor up and then reinvoke PS1
-    # TODO: If the bash prompt is >= 3 lines long, we might need to erase some lines..., but that's quite unlikely
-    if ((ps1_num_rows > 0))
-    then
-        # Note that there will be some noticable flickering here as PS1 was printed in the wrong place up top.
-        tput el1 # We prefer this to printf "\r"
-        tput cuu "$((ps1_num_rows * 2))"
-        printf "\r%s" "$ps1_result"
-    fi
+    local oldstty=$(stty -g </dev/tty)
+    # Technically we should be looking out for \[ (not \]) \], but this simpler regex should suffice
+    local ps1_last_row_no_escape=$(sed -r 's/\\\[[^]]*\\\]//g' <<<"$ps1_last_row")
+    local ps1_last_row_no_escape_rendered
+    printf -v ps1_last_row_no_escape_rendered "%s" "${ps1_last_row_no_escape@P}"
+    local col_with_ps1=$((${#ps1_last_row_no_escape_rendered} % COLUMNS))
 
     local displayed_command_line_back=
     if [[ "${command_line_back:0:1}" != ' ' ]]
@@ -1435,7 +1416,6 @@ __bu_bind_fzf_autocomplete_impl()
 
     printf "%s%s%s" "${command_line_front}" "${BU_TPUT_BLUE}${BU_TPUT_UNDERLINE}?${BU_TPUT_RESET}" "$displayed_command_line_back"
 
-    local command_line_escaped=$(printf '%q ' "${command_line[@]}")
     local opt_space=
     # We need to append a space if we swallowed a space
     if [[ "${command_line_front:${#command_line_front}-1}" = ' ' ]]
@@ -1520,7 +1500,7 @@ __bu_bind_fzf_autocomplete_impl()
         --cycle
         --no-sort
         --sync
-        --margin "0,0,0,$(( ( col_with_ps1 - 3 + READLINE_POINT - ${#command_line[-1]} ) % COLUMNS))"
+        --margin "0,0,0,$(( ( col_with_ps1 - 2 + READLINE_POINT - ${#command_line[-1]} ) % COLUMNS))"
         --query "${command_line[-1]}"
     )
 
