@@ -78,17 +78,6 @@ bu_autocomplete_def_compopt()
         if ! "$has_name"
         then
             bu_insert_associative_array completion_options BU_COMPOPT_CURRENT_COMPLETION_OPTIONS
-            # local key
-            # local value
-            # local enabled_options=()
-            # for key in "${!completion_options[@]}"
-            # do
-            #     value=${completion_options[$key]}
-            #     case "$value" in
-            #     -o) enabled_options+=("$@") ;;
-            #     +o) ;;
-            #     esac
-            # done
         fi
 
         builtin compopt "$@"
@@ -653,7 +642,9 @@ bu_autocomplete_get_autocompletions()
     (( $# >= 2 )) && prev_word=${command_line[-2]}
     COMPREPLY=()
     local tries
-    # bu_log_debug "$completion_func" "$completion_command" "$cur_word" "$prev_word"
+    bu_log_debug \
+        "completion_func[$completion_func]" "completion_command[$completion_command]" "cur_word[$cur_word]" "prev_word[$prev_word]" \
+        "COMP_POINT[$COMP_POINT] COMP_CWORD[$COMP_CWORD]"
     "$completion_func" "$completion_command" "$cur_word" "$prev_word" &>/dev/null
     local ret=$?
     for (( tries = 3; ret == 124 && tries > 0; tries-- ))
@@ -1326,8 +1317,8 @@ __bu_fzf_print_autocompletion()
 
     local args=("$@")
     args+=("${prev_fzf_selections[@]}" "$fzf_selection" "")
-    #printf "'%s' " bu_autocomplete_print_autocompletions "${args[@]}" >> "$BU_LOG_DIR"/autocomplete_debug.log
-    bu_autocomplete_print_autocompletions "${args[@]}" #2>> "$BU_LOG_DIR"/autocomplete_debug.log
+    # printf "'%s' " bu_autocomplete_print_autocompletions "${args[@]}" >> "$BU_LOG_DIR"/autocomplete_debug.log
+    bu_autocomplete_print_autocompletions "${args[@]}" #2>&1 | tee --append "$BU_LOG_DIR"/autocomplete_debug.log
 }
 # We don't really need this export unless we need to do logging earlier than the sourcing of bu_entrypoint.sh
 export BU_LOG_DIR
@@ -1451,9 +1442,15 @@ __bu_bind_fzf_autocomplete_impl()
     local selected_command
 
     local fzf_opts=(
+        --tac
+        --reverse
         --height 20% --min-height 14
         --extended --exact -i
         --cycle
+        --no-sort
+        --sync
+        --margin "0,0,0,$(( ( col_with_ps1 - 3 + READLINE_POINT - ${#command_line[-1]} ) % COLUMNS))"
+        --query "${command_line[-1]}"
     )
     local fzf_colors=(
         #   fg         Text
@@ -1505,14 +1502,8 @@ __bu_bind_fzf_autocomplete_impl()
             printf "%s\n" "${COMPREPLY[@]}" | uniq | \
                 fzf \
                     --header '' \
-                    --tac \
-                    --reverse \
-                    --margin "0,0,0,$(( ( col_with_ps1 - 3 + READLINE_POINT - ${#command_line[-1]} ) % COLUMNS))" \
-                    --no-sort \
-                    --sync \
-                    --query "${command_line[-1]}" \
                     "${fzf_opts[@]}" \
-                    --bind "tab:clear-query+transform-header(bash -c '__bu_fzf_print_header $BU_PROC_TMP_DIR {} ${command_line_no_last[*]}')+reload-sync(bash -c '__bu_fzf_print_autocompletion $BU_PROC_TMP_DIR {} ${command_line_no_last[*]}')" \
+                    --bind "tab:clear-query+transform-header(bash -c '__bu_fzf_print_header $BU_PROC_TMP_DIR \"{}\" ${command_line_no_last[*]}')+reload-sync(bash -c '__bu_fzf_print_autocompletion $BU_PROC_TMP_DIR \"{}\" ${command_line_no_last[*]}')" \
                     --bind "enter:transform-query(bash -c '__bu_fzf_finish $BU_PROC_TMP_DIR')+print-query"
 
             rm -f "$BU_PROC_TMP_DIR"/fzf_dynamic_autocomplete.txt
@@ -1522,12 +1513,6 @@ __bu_bind_fzf_autocomplete_impl()
             # Note that VSCode's completion suggestion box is 12 lines high, for fzf we also need to account for the finder info and search box
             printf "%s\n" "${COMPREPLY[@]}" | uniq | \
                 fzf \
-                    --tac \
-                    --reverse \
-                    --margin "0,0,0,$(( ( col_with_ps1 - 3 + READLINE_POINT - ${#command_line[-1]} ) % COLUMNS))" \
-                    --no-sort \
-                    --sync \
-                    --query "${command_line[-1]}" \
                     "${fzf_opts[@]}"
         fi
     ) && [[ -n "$selected_command" ]]
