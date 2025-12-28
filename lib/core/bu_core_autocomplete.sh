@@ -656,6 +656,7 @@ bu_autocomplete_get_autocompletions()
     bu_log_debug \
         "completion_func[$completion_func]" "completion_command[$completion_command]" "cur_word[$cur_word]" "prev_word[$prev_word]" \
         "COMP_POINT[$COMP_POINT] COMP_CWORD[$COMP_CWORD]"
+    declare -A -g BU_RET_MAP=()
     "$completion_func" "$completion_command" "$cur_word" "$prev_word" &>/dev/null
     local ret=$?
     has_ansi_colors=${BU_RET_MAP[has_ansi_colors]:-false}
@@ -672,7 +673,7 @@ bu_autocomplete_get_autocompletions()
         ret=$?
         has_ansi_colors=${BU_RET_MAP[has_ansi_colors]:-false}
     done
-    declare -g -A BU_RET_MAP=(
+    declare -A -g BU_RET_MAP=(
         [has_ansi_colors]=$has_ansi_colors
     )
     return "$ret"
@@ -806,6 +807,7 @@ __bu_autocomplete_completion_func_master_helper()
     local -a sub_args
     local -a stdout
     local -a opt_cur_word=("$cur_word")
+    local has_ansi_colors=false
     local -r accept_ansi_colors=${BU_AUTOCOMPLETE_ACCEPT_ANSI_COLORS:-false}
     local current_ansi_color=
     local reset_ansi_color=
@@ -826,6 +828,7 @@ __bu_autocomplete_completion_func_master_helper()
         -a|--ansi)
             if "$accept_ansi_colors"
             then
+                has_ansi_colors=true
                 current_ansi_color=${args[i+1]}
                 reset_ansi_color=$BU_TPUT_RESET
             fi
@@ -982,6 +985,7 @@ __bu_autocomplete_completion_func_master_helper()
             local non_files=()
             if "$accept_ansi_colors"
             then
+                has_ansi_colors=true
                 for (( i = 0; i < ${#COMPREPLY[@]}; i++ ))
                 do
                     if [[ -e "${COMPREPLY[i]}" ]]
@@ -991,13 +995,16 @@ __bu_autocomplete_completion_func_master_helper()
                         non_files+=("${COMPREPLY[i]}")
                     fi
                 done
-                mapfile -t COMPREPLY < <(ls -d -- "${dirs_or_files[@]}")
+                mapfile -t COMPREPLY < <(ls -d --color -- "${dirs_or_files[@]}")
                 COMPREPLY+=("${non_files[@]}")
             fi
         fi
 
         cd "$original_cwd"
     fi
+    declare -A -g BU_RET_MAP=(
+        [has_ansi_colors]=$has_ansi_colors
+    )
     return "$exit_code"
 }
 
