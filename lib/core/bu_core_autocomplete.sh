@@ -1737,11 +1737,11 @@ bu_read_word()
 # These autocompletion specs come in useful pretty often
 
 BU_AUTOCOMPLETE_SPEC_DIRECTORY=(
-    --sh compopt -o filenames sh--
+    --sh compopt -o filenames -o nospace sh--
     --stdout compgen -d stdout--
 )
 
 BU_AUTOCOMPLETE_SPEC_FILE=(
-    --sh compopt -o filenames sh--
+    --sh compopt -o filenames -o nospace sh--
     --stdout compgen -f stdout--
 )
