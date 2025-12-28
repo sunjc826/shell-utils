@@ -1048,11 +1048,6 @@ __bu_autocomplete_completion_func_master_impl()
     set +ex
     # bu_log_tty lazy_autocomplete_args="${lazy_autocomplete_args[*]}"
     
-    # If we are in READLINE mode (e.g. fzf autocomplete), then don't need to re-initialize completion options
-    if [[ -n "$READLINE_LINE" ]]
-    then
-        local -A BU_COMPOPT_CURRENT_COMPLETION_OPTIONS=()
-    fi
     bu_autocomplete_initialize_current_completion_options bu
     __bu_autocomplete_completion_func_master_helper "$completion_command_path" "$cur_word" "$prev_word" "${lazy_autocomplete_args[@]}"
     local exit_code=$?
@@ -1486,10 +1481,11 @@ __bu_bind_fzf_autocomplete_impl()
         command_line+=("")
     fi
 
-    local -A BU_COMPOPT_CURRENT_COMPLETION_OPTIONS=()
     if ((${#command_line[@]} > 1))
     then
         bu_autocomplete_initialize_current_completion_options "${command_line[0]}"
+    else
+        BU_COMPOPT_CURRENT_COMPLETION_OPTIONS=()
     fi
     # bu_print_var BU_COMPOPT_CURRENT_COMPLETION_OPTIONS > /dev/tty
     bu_autocomplete_get_autocompletions --accept-ansi-colors "${command_line[@]}"
