@@ -43,7 +43,8 @@ do
         namespace_style=${!shift_by}
         ;;
     -p|--pull)
-        # Pull from the git repo
+        # Pull from the git repo, works when using bash-utils from a submodule too
+        # Currently, the activated version of bash-utils is at BU_DIR[$BU_DIR]
         is_git_pull=true
         ;;
     +i|--no-init)
@@ -111,7 +112,26 @@ done
 
 if "$is_git_pull"
 then
-    git -C "$BU_DIR" pull
+    pushd "$BU_DIR" &>/dev/null
+    local current_branch=$(git branch --show-current)
+    if [[ -n "$current_branch" ]]
+    then
+        bu_run --no-log-last-run-cmd git pull --ff-only
+    else
+        # detached HEAD, could be a submodule
+        local superproject=$(git rev-parse --show-superproject-working-tree)
+        if [[ -n "$superproject" ]]
+        then
+            bu_basename "$BU_DIR"
+            local bu_submodule_dir_basename=$BU_RET
+            cd ..
+            bu_run --no-log-last-run-cmd git submodule update --remote ./"$bu_submodule_dir_basename"
+        else
+            bu_log_err "Cannot detect current branch, or if we are in a submodule, unable to update"
+        fi
+    fi
+
+    popd &>/dev/null
 fi
 
 local opt_force=()

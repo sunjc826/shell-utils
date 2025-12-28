@@ -3066,7 +3066,7 @@ bu_run()
         bu_log_cmd_info ldd "${command_list[0]}"
     fi
 
-    bu_log_cmd_info printf '%q ' "${gdb_prefix[@]}" "${cached_execute_prefix[@]}" "${command_list[@]}"
+    bu_log_cmd_info printf '%q ' "PWD=$PWD" "${gdb_prefix[@]}" "${cached_execute_prefix[@]}" "${command_list[@]}"
 
     local log_file=$BU_LOG_DIR/$command_base/$command_base.log
     if "$is_dry_run"
