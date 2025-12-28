@@ -485,7 +485,6 @@ bu_validate_positional()
     fi
     local COMPREPLY=()
     __bu_autocomplete_completion_func_master_helper "${BASH_SOURCE[1]}" "$cur_word" "$prev_word" "${autocompletion[@]}"
-    bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
     case ${#COMPREPLY[@]} in
     0)
         is_help=true
@@ -881,6 +880,7 @@ __bu_autocomplete_completion_func_master_helper()
                 # In this case, we will only leave out the exact options that have been parsed
                 # TODO: Handle the case where an option is allowed to be given more than once.
                 for option in "${BU_RET[@]}"; do
+                    # TODO: Filtering here
                     case "${bu_parsed_multiselect_arguments[$option]}" in
                     '') COMPREPLY+=("${current_ansi_color}${option}${reset_ansi_color}") ;;
                     1) continue ;;
@@ -908,6 +908,7 @@ __bu_autocomplete_completion_func_master_helper()
             --enum)
                 if [[ -n "$current_ansi_color" ]]
                 then
+                    # TODO: Filtering here
                     sub_args=("${sub_args[@]/#/$current_ansi_color}")
                     sub_args=("${sub_args[@]/%/$reset_ansi_color}")
                 fi
@@ -917,6 +918,7 @@ __bu_autocomplete_completion_func_master_helper()
                 # shellcheck disable=SC2207
                 if [[ -n "$current_ansi_color" ]]
                 then
+                    # TODO: Filtering here
                     stdout=($("${sub_args[@]}" "${opt_cur_word[@]}"))
                     stdout=("${stdout[@]/#/$current_ansi_color}")
                     stdout=("${stdout[@]/%/$reset_ansi_color}")
@@ -930,6 +932,7 @@ __bu_autocomplete_completion_func_master_helper()
                 then
                     if [[ -n "$current_ansi_color" ]]
                     then
+                        # TODO: Filtering here
                         BU_RET=("${BU_RET[@]/#/$current_ansi_color}")
                         BU_RET=("${BU_RET[@]/%/$reset_ansi_color}")
                     fi
@@ -967,7 +970,7 @@ __bu_autocomplete_completion_func_master_helper()
         : $(( i += shift_by ))
     done
 
-    if "$should_restore_cwd"
+    if [[ -e "${COMPREPLY[0]}" && -e "${COMPREPLY[-1]}" ]]
     then
         # If we are changing directories, then most likely the list of files are directory dependent,
         # We can also check the value of compopt if there is `-o filenames`
@@ -999,9 +1002,13 @@ __bu_autocomplete_completion_func_master_helper()
                 COMPREPLY+=("${non_files[@]}")
             fi
         fi
-
-        cd "$original_cwd"
     fi
+    # Note that if ansi colors are enabled, we must do the filtering up top individually (if we want to, but this can be a TODO)!
+    if ! "$has_ansi_colors"
+    then
+        bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
+    fi
+    cd "$original_cwd"
     declare -A -g BU_RET_MAP=(
         [has_ansi_colors]=$has_ansi_colors
     )
@@ -1074,7 +1081,6 @@ __bu_autocomplete_completion_func_master_impl()
     fi
 
     # bu_log_tty "COMPREPLY=${COMPREPLY[*]}"
-    bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
     if ((!${#COMPREPLY[@]})) && [[ -n "$bu_autocomplete_hint" ]]
     then
         compopt -o nosort # Bash 4.4+
@@ -1522,7 +1528,7 @@ __bu_bind_fzf_autocomplete_impl()
     fi
 
     local is_ansi=$completion_func_has_ansi_colors
-    if "$is_filenames"
+    if "$is_filenames" && ! "$completion_func_has_ansi_colors"
     then
         local i
         # We won't do this processing if COMPREPLY is too big to avoid lag
@@ -1543,7 +1549,7 @@ __bu_bind_fzf_autocomplete_impl()
             #   exist relative to our current working directory, then we assume
             #   that all the remaining elements also exist. We could strengthen the
             #   heuristic by testing more files.
-            if ! "$completion_func_has_ansi_colors" && ((${#COMPREPLY[@]})) && [[ -e ${COMPREPLY[0]} && -e ${COMPREPLY[-1]} ]]
+            if ((${#COMPREPLY[@]})) && [[ -e ${COMPREPLY[0]} && -e ${COMPREPLY[-1]} ]]
             then
                 mapfile -t COMPREPLY < <(ls -d --color -- "${COMPREPLY[@]}")
                 is_ansi=true
