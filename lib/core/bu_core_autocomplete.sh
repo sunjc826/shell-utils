@@ -801,6 +801,7 @@ __bu_autocomplete_completion_func_master_helper()
     local -a sub_args
     local -a stdout
     local -a opt_cur_word=("$cur_word")
+    local -r accept_ansi_colors=${BU_AUTOCOMPLETE_ACCEPT_ANSI_COLORS:-false}
     local current_ansi_color=
     local reset_ansi_color=
     local BU_RET
@@ -818,7 +819,7 @@ __bu_autocomplete_completion_func_master_helper()
             shift_by=2
             ;;
         -a|--ansi)
-            if "$BU_AUTOCOMPLETE_ACCEPT_ANSI_COLORS"
+            if "$accept_ansi_colors"
             then
                 current_ansi_color=${args[i+1]}
                 reset_ansi_color=$BU_TPUT_RESET
@@ -974,7 +975,7 @@ __bu_autocomplete_completion_func_master_helper()
             done
             local dirs_or_files=()
             local non_files=()
-            if "$BU_AUTOCOMPLETE_ACCEPT_ANSI_COLORS"
+            if "$accept_ansi_colors"
             then
                 for (( i = 0; i < ${#COMPREPLY[@]}; i++ ))
                 do
