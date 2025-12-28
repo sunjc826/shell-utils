@@ -18,7 +18,7 @@
 # You can create any custom variable you would like, and they will be accessible
 # in the templates via {{ site.myvariable }}.
 
-theme: jekyll-theme-cayman
+theme: just-the-docs
 title: bash-utils
 description: Bash CLI framework
 # email: your-email@example.com
@@ -58,5 +58,4 @@ description: Bash CLI framework
 #   - vendor/ruby/
 
 exclude:
-  - test/
-  - unused_index.markdown
+  - _posts/
