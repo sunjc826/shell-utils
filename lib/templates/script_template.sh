@@ -53,6 +53,10 @@ do
         break
         ;;
     esac
+    if "$is_help"
+    then
+        break
+    fi
     if (( $# < shift_by ))
     then
         bu_parse_error_argn "$1" $#
