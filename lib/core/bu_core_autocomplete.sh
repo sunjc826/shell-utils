@@ -960,6 +960,36 @@ __bu_autocomplete_completion_func_master_helper()
 
     if "$should_restore_cwd"
     then
+        # If we are changing directories, then most likely the list of files are directory dependent,
+        # We can also check the value of compopt if there is `-o filenames`
+        # like in the fzf completion function but I'm too lazy to add that right now.
+        if (( ${#COMPREPLY[@]} < 2000 ))
+        then
+            for (( i = 0; i < ${#COMPREPLY[@]}; i++ ))
+            do
+                if [[ -d "${COMPREPLY[i]}" && "${COMPREPLY[i]:${#COMPREPLY[i]}-1}" != / ]]
+                then
+                    COMPREPLY[i]+=/
+                fi
+            done
+            local dirs_or_files=()
+            local non_files=()
+            if "$BU_AUTOCOMPLETE_ACCEPT_ANSI_COLORS"
+            then
+                for (( i = 0; i < ${#COMPREPLY[@]}; i++ ))
+                do
+                    if [[ -e "${COMPREPLY[i]}" ]]
+                    then
+                        dirs_or_files+=("${COMPREPLY[i]}")
+                    else
+                        non_files+=("${COMPREPLY[i]}")
+                    fi
+                done
+                mapfile -t COMPREPLY < <(ls -- "${dirs_or_files[@]}")
+                COMPREPLY+=("${non_files[@]}")
+            fi
+        fi
+
         cd "$original_cwd"
     fi
     return "$exit_code"
