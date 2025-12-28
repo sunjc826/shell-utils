@@ -10,32 +10,39 @@ The following variables and functions are used by libraries invoking bash-utils 
 
 ### Initialization variables
 Bash variables are all strings/arrays of strings/maps of strings, alongside some variable attributes (e.g. number `-i`, readonly `-r` etc.) but we can interpret them differently.
-These variables are "declared" (really, it's for shellcheck hovering over hints) in [bu_user_defined_decl.sh][bu_user_defined_decl].
+These variables are "declared" (really, it's for bash-langugage server to give hints when hovering over them) in [bu_user_defined_decl.sh][bu_user_defined_decl].
 
 The customizable variables all have the `BU_USER_DEFINED_` prefix.
 
 Let us define the following conventional variable "types":
-- `Function`: The variable name is a function
-- `AbsPath[A]`: The variable name is an absolute path, where A is an optional annotation for the type of file we would expect at the end of the path. Some common annotations include:
-  - ExecutableScript: A script that is executable
-  - SourceableScript: A script that is meant to be sourced 
-- `RelPath[A]`: The variable name is a relative path
-- `Path[A]`: `AbsPath[A]|RelPath[A]`
-- `Int`: The variable is an integer
-- `T *`, or `Ref[T]`: The variable is a nameref to T, where T is some parameterized type.
-- `Array[T]`: The variable is a Bash array of type T, where T is some parameterized type.
-- `Map[K, V]`: The variable is a Bash associative array, where K, V are some parameterized types
 
-Variable list:
-- `BU_USER_DEFINED_STATIC_CONFIGS`: `Array[ Function | Path[SourceableScript] ]`
-- `BU_USER_DEFINED_DYNAMIC_CONFIGS`: `Array[ Function | Path[SourceableScript] ]`
-- `BU_USER_DEFINED_STATIC_PRE_INIT_ENTRYPOINT_CALLBACKS`: `Array[ Function | Path[SourceableScript] ]`
-- `BU_USER_DEFINED_DYNAMIC_POST_ENTRYPOINT_CALLBACKS`: `Array[ Function | Path[SourceableScript] ]`
-- `BU_USER_DEFINED_STATIC_POST_ENTRYPOINT_CALLBACKS`: `Array[ Function | Path[SourceableScript] ]`
-- `BU_USER_DEFINED_DYNAMIC_POST_ENTRYPOINT_CALLBACKS`: `Array[ Function | Path[SourceableScript] ]`
-- `BU_USER_DEFINED_COMPLETION_COMMAND_TO_KEY_CONVERSIONS`: `Array[Function]`
-- `BU_USER_DEFINED_AUTOCOMPLETE_HELPERS`: `Array[Function]`
-- `BU_USER_DEFINED_CLI_COMMAND_NAME`: `Function`
+| Type | Description | Example |
+|---|---|---|
+| `Function` | The variable name refers to a shell function. | `bu_init() { ... }` |
+| `AbsPath[A]` | Absolute path. `A` is an optional annotation describing the expected file type (for example, `ExecutableScript` or `SourceableScript`). |  |
+| `ExecutableScript` | Annotation for `AbsPath` indicating the file is an executable script. | `/usr/local/bin/my-script` has type `AbsPath[ExecutableScript]` |
+| `SourceableScript` | Annotation for `AbsPath` indicating the file is intended to be sourced. | `./bu_entrypoint.sh` has type `RelPath[SourceableScript]` |
+| `RelPath[A]` | Relative path. `A` is an optional annotation like with `AbsPath`. | `scripts/myscript.sh` |
+| `Path[A]` | Either `AbsPath[A]` or `RelPath[A]`. | `./lib/core/bu_core_base.sh` |
+| `Int` | Integer value. | `42` |
+| `Ref[T]` | A nameref to `T`, where `T` is some parameterized type. | `declare -n ref=executable_script_path_name` has type `Ref[Path[ExecutableScript]]` |
+| `Array[T]` | Bash indexed array whose elements are of type `T`. | `BU_FOO=(one two three)` has type `Array[String]` <br> `BU_BAR=(1 2 3)` has type `Array[Int]` |
+| `Map[K, V]` | Bash associative array mapping keys of type `K` to values of type `V`. | `declare -A m=([1]=one)` has type `Map[Int, String]` |
+| `T1 \| T2` | Union Type of `T1` and `T2` | |
+
+Variable list
+
+| Variable | Type | Description |
+|---|---|---|
+| `BU_USER_DEFINED_STATIC_CONFIGS` | `Array[ Function \| Path[SourceableScript] ]` | Static user-defined configuration callback scripts/functions. These are sourced once during initialization. |
+| `BU_USER_DEFINED_DYNAMIC_CONFIGS` | `Array[ Function \| Path[SourceableScript] ]` | Dynamic user-defined configuration callback scripts/functions. These are sourced every time the shell sources user-defined configs. |
+| `BU_USER_DEFINED_STATIC_PRE_INIT_ENTRYPOINT_CALLBACKS` | `Array[ Function \| Path[SourceableScript] ]` | Static user-defined pre-initialization callback scripts/functions. These are sourced once before shell initialization. |
+| `BU_USER_DEFINED_DYNAMIC_POST_ENTRYPOINT_CALLBACKS` | `Array[ Function \| Path[SourceableScript] ]` | Dynamic user-defined post-initialization callback scripts/functions. These are sourced after shell initialization. |
+| `BU_USER_DEFINED_STATIC_POST_ENTRYPOINT_CALLBACKS` | `Array[ Function \| Path[SourceableScript] ]` | Static user-defined post-initialization callback scripts/functions. These are sourced once after shell initialization. |
+| `BU_USER_DEFINED_DYNAMIC_POST_ENTRYPOINT_CALLBACKS` | `Array[ Function \| Path[SourceableScript] ]` | Dynamic user-defined post-initialization callback scripts/functions. These are sourced after shell initialization. |
+| `BU_USER_DEFINED_COMPLETION_COMMAND_TO_KEY_CONVERSIONS` | `Array[Function]` | User-defined command-to-key conversion functions. These functions can customize how commands are converted to completion keys. |
+| `BU_USER_DEFINED_AUTOCOMPLETE_HELPERS` | `Array[Function]` | User-defined autocomplete helper functions. These functions provide custom lazy autocompletion behavior. |
+| `BU_USER_DEFINED_CLI_COMMAND_NAME` | `Function` | A custom command line name for `bu`. |
 
 ### Initialization callable functions
 Another point of customization are the pre-init functions. They are found in [bu_core_preinit.sh][bu_core_preinit]. They all have the `bu_preinit_` prefix.
@@ -151,7 +158,7 @@ Functions should be documented with the following format:
 # ```
 ```
 
-The outer triple backticks allow bash-language-server to properly parse the markdown documentation inside the comments.
+The outer triple backticks allow bash-language-server to properly parse the markdown documentation inside the comments. How it works is that bash-language-server defaults to wrapping comment blocks in a `` ``` `` block, thus the top and bottom triple backticks close up the txt block so we can add arbitrary markdown in between.
 
 #### Variable Naming Conventions
 
