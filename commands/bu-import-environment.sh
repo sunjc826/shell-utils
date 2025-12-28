@@ -12,6 +12,9 @@ bu_run_log_command "$@"
 local namespace_style=
 local command_dirs=()
 local is_git_pull=false
+local is_reset_source=false
+local is_reset_vars=false
+local is_reset_module_path=false
 local is_init=true
 local is_force=false
 local is_help=false
@@ -53,8 +56,32 @@ do
         ;;
     -f|--force)
         # Forcefully source all files.
-        # Note that this option does not git pull --force, you need to do that manually if needed.
+        # Note that despite its name, this option does not git pull --force, you need to do that manually if needed.
         is_force=true
+        ;;
+    --reset-all)
+        # This is meant to be used by a top level script that wants to start from a (mostly) clean environment
+        # You may want to choose individual resets to allow external helper modules to "bleed into" the environment.
+        is_reset_source=true
+        is_reset_vars=true
+        is_reset_module_path=true
+        ;;
+    --reset-leaky)
+        # Allow BU_MODULE_PATH to leak into the current environment, otherwise reset everything else.
+        is_reset_source=true
+        is_reset_vars=true
+        ;;
+    --reset-source)
+        # Does something similar to --force
+        is_reset_source=true
+        ;;
+    --reset-vars)
+        # Allow the variables in bu_core_vars.sh to be reset
+        is_reset_vars=true
+        ;;
+    --reset-module-path)
+        # Allow BU_MODULE_PATH to be reset, this will effectively de-register the other modules that are not part of this project.  
+        is_reset_module_path=true
         ;;
     --)
         # Remaining options will be collected
@@ -138,6 +165,24 @@ local opt_force=()
 if "$is_force"
 then
     opt_force=(--__bu-force)
+fi
+
+if "$is_reset_source"
+then
+    bu_log_info "Resetting source once cache"
+    declare -A -g BU_SOURCE_ONCE_CACHE=()
+fi
+
+if "$is_reset_vars"
+then
+    bu_log_info "Resetting BU_CORE_VAR_SOURCED"
+    unset -v BU_CORE_VAR_SOURCED
+fi
+
+if "$is_reset_module_path"
+then
+    bu_log_info "Resetting BU_MODULE_PATH"
+    BU_MODULE_PATH=
 fi
 
 if "$is_init"
