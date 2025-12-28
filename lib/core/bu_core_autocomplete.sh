@@ -1445,12 +1445,14 @@ __bu_bind_fzf_autocomplete_impl()
     local fzf_dynamic_reload=${4:-false}
     local command_line=($command_line_front)
     tput sc
+    local oldstty=$(stty -g </dev/tty)
+    __bu_terminal_get_pos2 "$oldstty"
+    local row_start=${BU_RET[0]}
     # https://stackoverflow.com/questions/22322879/how-to-print-current-bash-prompt
     # Note that @P is a Bash 4.4 feature.
     local ps1_last_row=$(tail -n 1 <<<"${PS1##*\\n}")
     printf "%s" "${ps1_last_row@P}" # Let's print this out ASAP to reduce the duration of flicker (readline will erase the current line during a binding)
 
-    local oldstty=$(stty -g </dev/tty)
     # Technically we should be looking out for \[ (not \]) \], but this simpler regex should suffice
     local ps1_last_row_no_escape=$(sed -r 's/\\\[[^]]*\\\]//g' <<<"$ps1_last_row")
     local ps1_last_row_no_escape_rendered
@@ -1674,6 +1676,9 @@ __bu_bind_fzf_autocomplete_impl()
     if ((row_before_fzf == row_after_fzf))
     then
         tput rc
+    elif ((row_start < row_before_fzf))
+    then
+        tput cuu "$((row_before_fzf - row_start))"
     fi
 }
 
