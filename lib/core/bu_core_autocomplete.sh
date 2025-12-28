@@ -1190,6 +1190,33 @@ __bu_autocomplete_completion_func_cli()
     if ((COMP_CWORD == 1))
     then
         bu_compgen -W "${!BU_COMMANDS[*]}" -- "$cur_word"
+        if "${BU_AUTOCOMPLETE_ACCEPT_ANSI_COLORS:-false}"
+        then
+            local i
+            local color
+            for (( i = 0; i < ${#COMPREPLY[@]}; i++ ))
+            do
+                __bu_cli_command_type "${COMPREPLY[i]}"
+                case "$BU_RET" in
+                alias)
+                    color=$BU_TPUT_VSCODE_DARK_BLUE
+                    ;;
+                function)
+                    color=$BU_TPUT_VSCODE_YELLOW
+                    ;;
+                source)
+                    color=$BU_TPUT_VSCODE_ORANGE
+                    ;;
+                execute)
+                    color=$BU_TPUT_VSCODE_GREEN
+                    ;;
+                esac
+                COMPREPLY[i]=${color}${COMPREPLY[i]}${BU_TPUT_RESET}
+            done
+            declare -g -A BU_RET_MAP=(
+                [has_ansi_colors]=true
+            )
+        fi
         return 0
     fi
 
