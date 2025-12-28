@@ -782,6 +782,11 @@ BU_AUTOCOMPLETE_EXIT_CODE_FAIL=1
 # Autocomplete should be retried without moving on to the next word
 # ```
 BU_AUTOCOMPLETE_EXIT_CODE_RETRY=124
+
+# ```
+# *Returns*
+# - `${COMPREPLY[@]}`: An array of completions that doesn't necessarily match on cur_word prefix.
+# ```
 __bu_autocomplete_completion_func_master_helper()
 {
     local completion_command_path=$1
@@ -1042,8 +1047,29 @@ __bu_autocomplete_completion_func_master_impl()
     # Scripts might set -e, and because we are sourcing them, we unset it
     set +ex
     # bu_log_tty lazy_autocomplete_args="${lazy_autocomplete_args[*]}"
+    
+    # If we are in READLINE mode (e.g. fzf autocomplete), then don't need to re-initialize completion options
+    if [[ -n "$READLINE_LINE" ]]
+    then
+        local -A BU_COMPOPT_CURRENT_COMPLETION_OPTIONS=()
+    fi
+    bu_autocomplete_initialize_current_completion_options bu
     __bu_autocomplete_completion_func_master_helper "$completion_command_path" "$cur_word" "$prev_word" "${lazy_autocomplete_args[@]}"
     local exit_code=$?
+
+    local is_nospace=false
+    local is_filenames=false
+    if ((${#command_line[@]} > 1))
+    then
+        if [[ "${BU_COMPOPT_CURRENT_COMPLETION_OPTIONS[nospace]}" = -o ]]
+        then
+            is_nospace=true
+        fi
+        if [[ "${BU_COMPOPT_CURRENT_COMPLETION_OPTIONS[filenames]}" = -o ]]
+        then
+            is_filenames=true
+        fi
+    fi
 
     # bu_log_tty "COMPREPLY=${COMPREPLY[*]}"
     bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
@@ -1057,12 +1083,12 @@ __bu_autocomplete_completion_func_master_impl()
     if ((exit_code == BU_AUTOCOMPLETE_EXIT_CODE_RETRY))
     then
         compopt -o nospace
-    elif ((${#COMPREPLY} == 1)) && [[ -n "${tail:0:1}" ]]
+    elif ((${#COMPREPLY} == 1)) && [[ -n "${tail:0:1}" ]] && ! "$is_nospace"
     then
+        # When there is (1) only 1 completion suggestion, (2) the cursor is right before a non-space char, (3) No `compopt -o nospace` has been invoked
+
         # Force add a space because compopt +o nospace doesn't create a space in this case
         COMPREPLY[0]+=' '
-    else
-        compopt +o nospace
     fi
 }
 
@@ -1460,6 +1486,7 @@ __bu_bind_fzf_autocomplete_impl()
         command_line+=("")
     fi
 
+    local -A BU_COMPOPT_CURRENT_COMPLETION_OPTIONS=()
     if ((${#command_line[@]} > 1))
     then
         bu_autocomplete_initialize_current_completion_options "${command_line[0]}"

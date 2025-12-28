@@ -61,6 +61,10 @@ declare -A -g BU_COMMAND_NOUNS=()
 # ```
 declare -A -g BU_COMMAND_NAMESPACES=()
 
+# ```
+# It is recommended to isolate this by declaring `local -A BU_COMPOPT_CURRENT_COMPLETION_OPTIONS`
+# instead of using the global version.
+# ```
 declare -A -g BU_COMPOPT_CURRENT_COMPLETION_OPTIONS=()
 
 # ```
