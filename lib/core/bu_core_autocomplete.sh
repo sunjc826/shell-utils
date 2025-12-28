@@ -991,7 +991,7 @@ __bu_autocomplete_completion_func_master_helper()
                         non_files+=("${COMPREPLY[i]}")
                     fi
                 done
-                mapfile -t COMPREPLY < <(ls -- "${dirs_or_files[@]}")
+                mapfile -t COMPREPLY < <(ls -d -- "${dirs_or_files[@]}")
                 COMPREPLY+=("${non_files[@]}")
             fi
         fi
