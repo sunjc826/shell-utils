@@ -1847,25 +1847,34 @@ bu_read_word()
     fi
 }
 
+# This works on Bash 5.2.21 but does not on 4.4
+# i.e. even after being disabled, it still shows up
+# bind -X | grep -q __bu_bind_fzf_tab_autocomplete
+# Hence, to work on older Bash versions, we use a book-keeping variable.
+BU_AUTOCOMPLETE_IS_CUSTOM_TAB=false
 bu_autocomplete_enable_tab()
 {
     bind -x '"\t": "__bu_bind_fzf_tab_autocomplete"'
+    BU_AUTOCOMPLETE_IS_CUSTOM_TAB=true
 }
 
 bu_autocomplete_disable_tab()
 {
-    bind -r "\t"
+    # This works on bash 5.2.21 but doesn't on Bash 4.4
+    # bind -r "\t"
+    bind '"\t": complete'
+    BU_AUTOCOMPLETE_IS_CUSTOM_TAB=false
 }
 
 bu_autocomplete_toggle_tab()
 {
-    if bind -X | grep -q __bu_bind_fzf_tab_autocomplete
+    if "$BU_AUTOCOMPLETE_IS_CUSTOM_TAB"
     then
-        bu_log_info "fzf TAB disabled"
         bu_autocomplete_disable_tab
+        bu_log_info "fzf TAB disabled"
     else
-        bu_log_info "fzf TAB enabled"
         bu_autocomplete_enable_tab
+        bu_log_info "fzf TAB enabled"
     fi
 }
 
