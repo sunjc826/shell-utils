@@ -90,4 +90,5 @@ declare -A -g BU_KEY_BINDINGS=(
     ['\C-@']="__bu_bind_fzf_autocomplete_dynamic"
     # Alternative binding
     ['\ec']="__bu_bind_fzf_autocomplete_dynamic"
+    ['\ez']="bu_autocomplete_toggle_tab"
 )

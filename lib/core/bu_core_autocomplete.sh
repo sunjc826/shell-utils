@@ -1483,6 +1483,7 @@ __bu_bind_fzf_autocomplete_impl()
     local command_line_back=$2
     local move_cursor_to_end=$3
     local fzf_dynamic_reload=${4:-false}
+    local use_tab_to_confirm=${5:-false}
     local command_line=($command_line_front)
     tput sc
     local oldstty=$(stty -g </dev/tty)
@@ -1666,6 +1667,12 @@ __bu_bind_fzf_autocomplete_impl()
             # No need for tput lines and tput cols, bash already has $LINES and $COLUMNS
             # margin is Top,Right,Bottom,Left
             # Note that VSCode's completion suggestion box is 12 lines high, for fzf we also need to account for the finder info and search box
+            
+            if "$use_tab_to_confirm"
+            then
+                fzf_opts+=(--bind "tab:accept")
+            fi
+            
             printf "%s\n" "${COMPREPLY[@]}" | uniq | \
                 fzf \
                     "${fzf_opts[@]}"
@@ -1741,6 +1748,11 @@ __bu_bind_fzf_autocomplete()
 __bu_bind_fzf_autocomplete_dynamic()
 {
     __bu_bind_fzf_autocomplete_impl "${READLINE_LINE:0:$READLINE_POINT}" "${READLINE_LINE:$READLINE_POINT}" false true
+}
+
+__bu_bind_fzf_tab_autocomplete()
+{
+    __bu_bind_fzf_autocomplete_impl "${READLINE_LINE:0:$READLINE_POINT}" "${READLINE_LINE:$READLINE_POINT}" false false true
 }
 
 # ```
@@ -1832,6 +1844,28 @@ bu_read_word()
     then
         rm -f "$BU_PROC_TMP_DIR"/read/*
         popd &>/dev/null
+    fi
+}
+
+bu_autocomplete_enable_tab()
+{
+    bind -x '"\t": "__bu_bind_fzf_tab_autocomplete"'
+}
+
+bu_autocomplete_disable_tab()
+{
+    bind -r "\t"
+}
+
+bu_autocomplete_toggle_tab()
+{
+    if bind -X | grep -q __bu_bind_fzf_tab_autocomplete
+    then
+        bu_log_info "fzf TAB disabled"
+        bu_autocomplete_disable_tab
+    else
+        bu_log_info "fzf TAB enabled"
+        bu_autocomplete_enable_tab
     fi
 }
 
