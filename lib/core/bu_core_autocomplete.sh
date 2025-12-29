@@ -1510,12 +1510,10 @@ __bu_bind_fzf_autocomplete_impl()
 
     printf "%s%s%s" "${command_line_front}" "${BU_TPUT_BLUE}${BU_TPUT_UNDERLINE}?${BU_TPUT_RESET}" "$displayed_command_line_back"
 
-    local opt_space=
     # We need to append a space if we swallowed a space
     if [[ "${command_line_front:${#command_line_front}-1}" = ' ' ]]
     then
         command_line+=("")
-        opt_space="''"
     fi
 
     if ((!${#command_line[@]}))
@@ -1586,8 +1584,11 @@ __bu_bind_fzf_autocomplete_impl()
     __bu_terminal_get_pos2 "$oldstty"
     local row_before_fzf=${BU_RET[0]}
 
-    local selected_command
-
+    local left_pos=$(( ( col_with_ps1 - 2 + READLINE_POINT - ${#command_line[-1]} ) % COLUMNS))
+    local min_width=$((48 + ${#command_line[-1]}))
+    local right_pos=$(( ((left_pos + min_width) < COLUMNS) ? (left_pos + min_width) : COLUMNS  ))
+    left_pos=$((right_pos - min_width))
+    local right_margin=$(( COLUMNS - right_pos ))
     local fzf_opts=(
         --tac
         --reverse
@@ -1596,7 +1597,7 @@ __bu_bind_fzf_autocomplete_impl()
         --cycle
         --no-sort
         --sync
-        --margin "0,0,0,$(( ( col_with_ps1 - 2 + READLINE_POINT - ${#command_line[-1]} ) % COLUMNS))"
+        --margin "0,$right_margin,0,$left_pos"
         --query "${command_line[-1]}"
     )
 
@@ -1638,6 +1639,7 @@ __bu_bind_fzf_autocomplete_impl()
     bu_list_join , "${fzf_colors[@]}"
     fzf_opts+=(--color="$BU_RET")
 
+    local selected_command
     if selected_command=$(
         if "$fzf_dynamic_reload"
         then
