@@ -1534,7 +1534,7 @@ __bu_bind_fzf_autocomplete_impl()
         return 1
     fi
     
-    local completion_func_has_ansi_colors=${BU_RET_MAP[has_ansi_colors]}
+    local completion_func_has_ansi_colors=${BU_RET_MAP[has_ansi_colors]:-false}
     # bu_print_var BU_COMPOPT_CURRENT_COMPLETION_OPTIONS > /dev/tty
     local is_nospace=false
     local is_filenames=false
