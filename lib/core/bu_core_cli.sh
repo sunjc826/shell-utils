@@ -173,7 +173,7 @@ __bu_cli_help()
 bu_autohelp()
 {
     set +e
-    local header=
+    local description=
     local example_purposes=()
     local example_command_lines=()
     local shift_by
@@ -182,7 +182,7 @@ bu_autohelp()
         shift_by=1
         case "$1" in
         --description)
-            header=$2
+            description=$2
             shift_by=2
             ;;
         --example)
@@ -213,18 +213,46 @@ bu_autohelp()
         exit_code=1
     fi
 
+    local command
+    for command in "${!BU_COMMANDS[@]}"
+    do
+        if [[ "${BU_COMMANDS[$command]}" = "$script_path" ]]
+        then
+            break
+        fi
+    done
+
+    if [[ "${BU_COMMANDS[$command]}" != "$script_path" ]]
+    then
+        command=
+    fi
+    local padding=$'\t'
     local -a bu_script_options=()
     local -a bu_script_option_docs=()
     eval "$(bu_autohelp_parse_case_block_help "${script_path}" "" "" "${BASH_LINENO[0]}")"
 
-    printf '%s\n' "Help for ${BU_TPUT_BOLD}${script_path}${BU_TPUT_RESET}"
-    if [[ -n "$header" ]]
+    printf '%s\n' "${BU_TPUT_BOLD}NAME${BU_TPUT_RESET}"
+    printf "$padding%s\n" "${command:+$BU_CLI_COMMAND_NAME }${command}${command:+ - }${script_path}"  
+
+    if [[ -n "$description" ]]
     then
-        printf '\n%s\n\n' "${BU_TPUT_BOLD}${BU_TPUT_DARK_BLUE}DESCRIPTION${BU_TPUT_RESET}"
-        printf '%s\n' "$(bu_gen_remove_empty_lines <<<"$header" | bu_gen_trim)"
+        printf '\n%s\n\n' "${BU_TPUT_BOLD}DESCRIPTION${BU_TPUT_RESET}"
+
+        if [[ -n "$command" ]]
+        then
+            local namespace=${BU_COMMAND_PROPERTIES[$command,namespace]}
+            local verb=${BU_COMMAND_PROPERTIES[$command,verb]}
+            local noun=${BU_COMMAND_PROPERTIES[$command,noun]}
+            printf "$padding%s\n" "Namespace: $namespace" "Verb: $verb" "Noun: $noun"
+            echo
+        fi  
+
+        local -a description_lines
+        mapfile -t description_lines < <(bu_gen_remove_empty_lines <<<"$description" | bu_gen_trim)
+        printf "$padding%s\n" "${description_lines[@]}"
     fi
 
-    printf '\n%s\n\n' "${BU_TPUT_BOLD}${BU_TPUT_DARK_BLUE}OPTIONS${BU_TPUT_RESET}"
+    printf '\n%s\n\n' "${BU_TPUT_BOLD}OPTIONS${BU_TPUT_RESET}"
     local i
     local option
     local option_docs
@@ -235,15 +263,15 @@ bu_autohelp()
         option=${option//\|/${BU_TPUT_BLUE},${BU_TPUT_RESET}${BU_TPUT_BOLD}}
         if [[ -z "$option_docs" ]]
         then
-            printf '%s (No additional help)\n' "${BU_TPUT_BOLD}$option${BU_TPUT_RESET}"
+            printf "$padding%s (No additional help)\n\n" "${BU_TPUT_BOLD}$option${BU_TPUT_RESET}"
         else
-            printf '%s\n\t%s\n' "${BU_TPUT_BOLD}$option${BU_TPUT_RESET}" "${option_docs//$'\n'/$'\n\t'}"
+            printf "$padding%s\n$padding$padding%s\n" "${BU_TPUT_BOLD}$option${BU_TPUT_RESET}" "${option_docs//$'\n'/$'\n'$padding$padding}"
         fi
     done
 
     if ((${#example_purposes[@]}))
     then
-        printf "\n%s\n\n" "${BU_TPUT_BOLD}${BU_TPUT_DARK_BLUE}EXAMPLES${BU_TPUT_RESET}"
+        printf "\n%s\n\n" "${BU_TPUT_BOLD}EXAMPLES${BU_TPUT_RESET}"
 
         __bu_cli_command_type "${script_path}"
         local opt_source=
@@ -254,8 +282,8 @@ bu_autohelp()
         local i
         for i in "${!example_purposes[@]}"
         do
-            printf "%s:\n" "- ${example_purposes[i]}"
-            printf "\t%s %s\n\n" "${BU_TPUT_BOLD}${opt_source}${script_name}" "${example_command_lines[i]}${BU_TPUT_RESET}"
+            printf "$padding%s:\n\n" "${example_purposes[i]}"
+            printf "$padding$padding%s %s\n\n" "${BU_TPUT_BOLD}\$ ${opt_source}${script_name}" "${example_command_lines[i]}${BU_TPUT_RESET}"
         done
     fi
 

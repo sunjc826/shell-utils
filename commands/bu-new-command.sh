@@ -98,6 +98,7 @@ fi
 
 if "$is_help"
 then
+    local search_dirs=("${!BU_COMMAND_SEARCH_DIRS[@]}")
     bu_autohelp \
         --description "
 Create a bash-utils compatible \
@@ -105,14 +106,14 @@ Create a bash-utils compatible \
 script using a template
 " \
         --example \
-        "Generate an executable script called ${BU_TPUT_BOLD}my_script.sh${BU_TPUT_RESET} in ${BU_TPUT_BOLD}${BU_COMMAND_SEARCH_DIRS[0]}${BU_TPUT_RESET}" \
-        "--dir ${BU_COMMAND_SEARCH_DIRS[0]} --name my_script" \
+        "Generate an executable script called ${BU_TPUT_BOLD}my_script.sh${BU_TPUT_RESET} in ${BU_TPUT_BOLD}${search_dirs}${BU_TPUT_RESET}" \
+        "--dir ${search_dirs} --name my_script" \
         --example \
-        "Generate a source-able script called ${BU_TPUT_BOLD}my_sourceable_script.sh${BU_TPUT_RESET} in ${BU_TPUT_BOLD}${BU_COMMAND_SEARCH_DIRS[0]}${BU_TPUT_RESET}" \
-        "--dir ${BU_COMMAND_SEARCH_DIRS[0]} --name my_sourceable_script" \
+        "Generate a source-able script called ${BU_TPUT_BOLD}my_sourceable_script.sh${BU_TPUT_RESET} in ${BU_TPUT_BOLD}${search_dirs}${BU_TPUT_RESET}" \
+        "--dir ${search_dirs} --name my_sourceable_script" \
         --example \
-        "Overwrite an existing script called ${BU_TPUT_BOLD}my_script.sh${BU_TPUT_RESET} in ${BU_TPUT_BOLD}${BU_COMMAND_SEARCH_DIRS[0]}${BU_TPUT_RESET}" \
-        "--dir ${BU_COMMAND_SEARCH_DIRS[0]} --name my_script --force" \
+        "Overwrite an existing script called ${BU_TPUT_BOLD}my_script.sh${BU_TPUT_RESET} in ${BU_TPUT_BOLD}${search_dirs}${BU_TPUT_RESET}" \
+        "--dir ${search_dirs} --name my_script --force" \
 
     return 0
 fi
