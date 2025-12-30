@@ -655,7 +655,7 @@ bu_autocomplete_get_autocompletions()
     bu_log_debug \
         "completion_func[$completion_func]" "completion_command[$completion_command]" "cur_word[$cur_word]" "prev_word[$prev_word]" \
         "COMP_POINT[$COMP_POINT] COMP_CWORD[$COMP_CWORD]"
-    declare -A -g BU_RET_MAP=()
+    BU_RET_MAP=()
     "$completion_func" "$completion_command" "$cur_word" "$prev_word" &>/dev/null
     local ret=$?
     has_ansi_colors=${BU_RET_MAP[has_ansi_colors]:-false}
@@ -672,7 +672,7 @@ bu_autocomplete_get_autocompletions()
         ret=$?
         has_ansi_colors=${BU_RET_MAP[has_ansi_colors]:-false}
     done
-    declare -A -g BU_RET_MAP=(
+    BU_RET_MAP=(
         [has_ansi_colors]=$has_ansi_colors
     )
     return "$ret"
@@ -1009,9 +1009,7 @@ __bu_autocomplete_completion_func_master_helper()
         bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
     fi
     cd "$original_cwd"
-    declare -A -g BU_RET_MAP=(
-        [has_ansi_colors]=$has_ansi_colors
-    )
+    BU_RET_MAP=([has_ansi_colors]=$has_ansi_colors)
     return "$exit_code"
 }
 
@@ -1213,9 +1211,7 @@ __bu_autocomplete_completion_func_cli()
                 esac
                 COMPREPLY[i]=${color}${COMPREPLY[i]}${BU_TPUT_RESET}
             done
-            declare -g -A BU_RET_MAP=(
-                [has_ansi_colors]=true
-            )
+            BU_RET_MAP=([has_ansi_colors]=true)
         fi
         return 0
     fi
@@ -1528,6 +1524,7 @@ __bu_bind_fzf_autocomplete_impl()
     else
         BU_COMPOPT_CURRENT_COMPLETION_OPTIONS=()
     fi
+    BU_RET_MAP=()
     # bu_print_var BU_COMPOPT_CURRENT_COMPLETION_OPTIONS > /dev/tty
     bu_autocomplete_get_autocompletions --accept-ansi-colors "${command_line[@]}"
     if (($? && !${#COMPREPLY[@]}))
@@ -1588,10 +1585,11 @@ __bu_bind_fzf_autocomplete_impl()
     local left_pos=$(( ( col_with_ps1 - 2 + READLINE_POINT - ${#command_line[-1]} ) % COLUMNS))
     local min_width=$((48 + ${#command_line[-1]}))
     local right_pos=$(( ((left_pos + min_width) < COLUMNS) ? (left_pos + min_width) : COLUMNS  ))
-    left_pos=$((right_pos - min_width))
+    left_pos=$(( (right_pos - min_width) > 0 ? (right_pos - min_width) : 0 ))
     local right_margin=$(( COLUMNS - right_pos ))
     local fzf_opts=(
-        --tac
+        --exit-0
+        --select-1
         --reverse
         --height 20% --min-height 14
         --extended --exact -i
@@ -1673,9 +1671,16 @@ __bu_bind_fzf_autocomplete_impl()
                 fzf_opts+=(--bind "tab:accept")
             fi
             
-            printf "%s\n" "${COMPREPLY[@]}" | uniq | \
-                fzf \
-                    "${fzf_opts[@]}"
+            if (("${#COMPREPLY[@]}" > 10000))
+            then
+                printf "%s\n" "${COMPREPLY[@]}" | \
+                    fzf \
+                        "${fzf_opts[@]}"
+            else
+                printf "%s\n" "${COMPREPLY[@]}" | sort --unique | \
+                    fzf \
+                        "${fzf_opts[@]}"
+            fi
         fi
     ) && [[ -n "$selected_command" ]]
     then
