@@ -45,3 +45,5 @@ __bu_init_env_commands()
 }
 
 __bu_init_env_commands
+# Get bu_impl.sh on PATH so that bu can be called
+bu_env_append_path "$BU_LIB_BINSRC_DIR"
