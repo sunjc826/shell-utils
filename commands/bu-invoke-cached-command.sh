@@ -79,16 +79,16 @@ do
         # Use strict equality (including command line) for cache hits
         bu_cached_execute_args+=("$1")
         ;;
+    -h|--help)
+        # Print help
+        is_help=true
+        ;;
     --)
         # Remaining options will be collected
         bu_cached_execute_args+=("$1")
         options_finished=true
         shift
         break
-        ;;
-    -h|--help)
-        # Print help
-        is_help=true
         ;;
     ''|-*)
         bu_parse_error_enum "$1"

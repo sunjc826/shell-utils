@@ -76,15 +76,15 @@ do
         bu_validate_positional "${!shift_by}"
         type_filter=${!shift_by}
         ;;
+    -h|--help)
+        # Print help
+        is_help=true
+        ;;
     --)
         # Remaining options will be collected
         options_finished=true
         shift
         break
-        ;;
-    -h|--help)
-        # Print help
-        is_help=true
         ;;
     *)
         bu_parse_error_enum "$1"

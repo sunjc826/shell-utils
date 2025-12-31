@@ -228,11 +228,38 @@ bu_autohelp()
     fi
     local padding=$'\t'
     local -a bu_script_options=()
+    local -a bu_script_option_synopsis=()
     local -a bu_script_option_docs=()
     eval "$(bu_autohelp_parse_case_block_help "${script_path}" "" "" "${BASH_LINENO[0]}")"
 
     printf '%s\n' "${BU_TPUT_BOLD}NAME${BU_TPUT_RESET}"
     printf "$padding%s\n" "${command:+$BU_CLI_COMMAND_NAME }${command}${command:+ - }${script_path}"  
+
+    printf '\n%s\n\n' "${BU_TPUT_BOLD}SYNOPSIS${BU_TPUT_RESET}"
+    
+    local option
+    local option_parameter_description
+    printf '\t%s ' "${command:+$BU_CLI_COMMAND_NAME }${command:-$script_path}" 
+    for i in "${!bu_script_options[@]}"
+    do
+        option=${bu_script_options[i]}
+        option_parameter_description=${bu_script_option_synopsis[i]}
+        option_parameter_description="${option_parameter_description#"${option_parameter_description%%[![:space:]]*}"}"
+        option_parameter_description="${option_parameter_description%"${option_parameter_description##*[![:space:]]}"}"
+        bu_script_option_synopsis[i]=$option_parameter_description
+        case "$option_parameter_description" in
+        '')
+            printf "[%s ?] " "${BU_TPUT_BOLD}$option${BU_TPUT_RESET}"
+            ;;
+        _FLAG)
+            printf "[%s] " "${BU_TPUT_BOLD}$option${BU_TPUT_RESET}"
+            ;;
+        *)
+            printf "[%s %s] " "${BU_TPUT_BOLD}$option${BU_TPUT_RESET}" "${BU_TPUT_UNDERLINE}$option_parameter_description${BU_TPUT_NO_UNDERLINE}" 
+            ;;
+        esac
+    done
+    printf "\n"
 
     if [[ -n "$description" ]]
     then
@@ -259,13 +286,26 @@ bu_autohelp()
     for i in "${!bu_script_options[@]}"
     do
         option=${bu_script_options[i]}
+        option_parameter_description=${bu_script_option_synopsis[i]}
         option_docs=${bu_script_option_docs[i]}
         option=${option//\|/${BU_TPUT_BLUE},${BU_TPUT_RESET}${BU_TPUT_BOLD}}
+
+        case "$option_parameter_description" in
+        '')
+            option_parameter_description='?'
+            ;;
+        _FLAG)
+            option_parameter_description=
+            ;;
+        *)
+            ;;
+        esac
+
         if [[ -z "$option_docs" ]]
         then
-            printf "$padding%s (No additional help)\n\n" "${BU_TPUT_BOLD}$option${BU_TPUT_RESET}"
+            printf "$padding%s%s (No additional help)\n\n" "${BU_TPUT_BOLD}$option${BU_TPUT_RESET}" "${option_parameter_description:+ ${BU_TPUT_UNDERLINE}$option_parameter_description${BU_TPUT_NO_UNDERLINE}}"
         else
-            printf "$padding%s\n$padding$padding%s\n" "${BU_TPUT_BOLD}$option${BU_TPUT_RESET}" "${option_docs//$'\n'/$'\n'$padding$padding}"
+            printf "$padding%s%s\n$padding$padding%s\n" "${BU_TPUT_BOLD}$option${BU_TPUT_RESET}" "${option_parameter_description:+ ${BU_TPUT_UNDERLINE}$option_parameter_description${BU_TPUT_NO_UNDERLINE}}" "${option_docs//$'\n'/$'\n'$padding$padding}"
         fi
     done
 

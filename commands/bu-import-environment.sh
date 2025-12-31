@@ -26,12 +26,12 @@ while (($#))
 do
     bu_parse_multiselect $# "$1"
     case "$1" in
-    -c|--command-dir)
+    -c|--command-dir)# COMMAND_DIR
         # Directory to add to the command search dirs, currently ${BU_COMMAND_SEARCH_DIRS[*]} 
         bu_parse_positional $# "${BU_AUTOCOMPLETE_SPEC_DIRECTORY[@]}"
         command_dirs+=("${!shift_by}")
         ;;
-    -ns|--namespace-style)
+    -ns|--namespace-style)# NS_STYLE
         # One of ${BU_ENUM_NAMESPACE_STYLE[*]}. Default is empty, which has the same behavior as an explicit none.
         # - none: No namespace in command
         # - prefix-keep: Synonym to none
@@ -45,53 +45,53 @@ do
         bu_validate_positional "${!shift_by}"
         namespace_style=${!shift_by}
         ;;
-    -p|--pull)
+    -p|--pull)# _FLAG
         # Pull from the git repo, works when using bash-utils from a submodule too
         # Currently, the activated version of bash-utils is at BU_DIR[$BU_DIR]
         is_git_pull=true
         ;;
-    +i|--no-init)
+    +i|--no-init)# _FLAG
         # An optimization if import-environment is to be called successively
         is_init=false;
         ;;
-    -f|--force)
+    -f|--force)# _FLAG
         # Forcefully source all files.
         # Note that despite its name, this option does not git pull --force, you need to do that manually if needed.
         is_force=true
         ;;
-    --reset-all)
+    --reset-all)# _FLAG
         # This is meant to be used by a top level script that wants to start from a (mostly) clean environment
-        # You may want to choose individual resets to allow external helper modules to "bleed into" the environment.
+        # You may want to choose individual resets to allow external helper modules to 'bleed into' the environment.
         is_reset_source=true
         is_reset_vars=true
         is_reset_module_path=true
         ;;
-    --reset-leaky)
+    --reset-leaky)# _FLAG
         # Allow BU_MODULE_PATH to leak into the current environment, otherwise reset everything else.
         is_reset_source=true
         is_reset_vars=true
         ;;
-    --reset-source)
+    --reset-source)# _FLAG
         # Does something similar to --force
         is_reset_source=true
         ;;
-    --reset-vars)
+    --reset-vars)# _FLAG
         # Allow the variables in bu_core_vars.sh to be reset
         is_reset_vars=true
         ;;
-    --reset-module-path)
+    --reset-module-path)# _FLAG
         # Allow BU_MODULE_PATH to be reset, this will effectively de-register the other modules that are not part of this project.  
         is_reset_module_path=true
         ;;
-    --)
+    -h|--help)# _FLAG
+        # Print help
+        is_help=true
+        ;;
+    --)# _FLAG
         # Remaining options will be collected
         options_finished=true
         shift
         break
-        ;;
-    -h|--help)
-        # Print help
-        is_help=true
         ;;
     *)
         bu_parse_error_enum "$1"

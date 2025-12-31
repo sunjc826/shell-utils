@@ -80,16 +80,16 @@ do
         # REPL mode (send Ctrl-D to exit)
         bu_spawn_args+=("$1")
         ;;
+    -h|--help)
+        # Print help
+        is_help=true
+        ;;
     --)
         # Remaining options will be collected
         bu_spawn_args+=("$1")
         options_finished=true
         shift
         break
-        ;;
-    -h|--help)
-        # Print help
-        is_help=true
         ;;
     ''|-*)
         bu_parse_error_enum "$1"

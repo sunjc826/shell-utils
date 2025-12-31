@@ -261,8 +261,7 @@ bu_autohelp_parse_case_block_help()
     fi
 
     cat <<EOF
-local -a bu_script_options=()
-local -a bu_script_option_docs=()
+local -a bu_script_options=() bu_script_option_synopsis=() bu_script_option_docs=()
 EOF
 
     local start_row=0
@@ -360,9 +359,16 @@ EOF
             printf "# 2: %s\n", NR
         }
         gsub(/^[[:space:]]*/, "", line)
+
         if ( state == outside ) {
             idx = idx + 1
             printf "bu_script_options[%d]=\"%s\"\n", idx, line
+
+            option_parameter_description = $0
+            if (! sub(/.*\) *# */, "", option_parameter_description)) {
+                option_parameter_description = ""
+            }
+            printf "bu_script_option_synopsis[%d]=\"%s\"\n", idx, option_parameter_description
         } else {
             printf "%s\"\n", line
         }

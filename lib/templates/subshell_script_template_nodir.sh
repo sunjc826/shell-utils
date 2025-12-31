@@ -1,32 +1,14 @@
 #!/usr/bin/env bash
 function __bu_@BU_SCRIPT_NAME@_main()
 {
-set -e
-local -r invocation_dir=$PWD
-local script_name
-local script_dir
-case "$BASH_SOURCE" in
-*/*)
-    script_name=${BASH_SOURCE##*/}
-    script_dir=${BASH_SOURCE%/*}
-    ;;
-*)
-    script_name=$BASH_SOURCE
-    script_dir=.
-    ;;
-esac
-pushd "$script_dir" &>/dev/null
-script_dir=$PWD
+# Note that we do not source bu_entrypoint inside the sourceable script template
+# as it is assumed that sourceable scripts are sourced AFTER 
+# bu_entrypoint has been sourced by the user.
 
-if [[ -z "$COMP_CWORD" ]]
-then
 # shellcheck source=./__bu_entrypoint_decl.sh
-source "$BU_DIR"/bu_entrypoint.sh
-fi
+source "$BU_NULL"
 
-bu_exit_handler_setup
 bu_scope_push_function
-bu_scope_add_cleanup bu_popd_silent
 bu_run_log_command "$@"
 
 local is_help=false
@@ -76,6 +58,11 @@ then
     bu_autohelp
     return 0
 fi
+
+(
+bu_exit_handler_setup
+# TODO: Implement subshell initializer to clear up the scope stack
+)
 
 bu_scope_pop_function
 }

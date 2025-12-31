@@ -104,16 +104,16 @@ do
         bu_parse_positional $# --hint outparam
         bu_run_args+=("$1" "$2")
         ;;
+    -h|--help)
+        # Print help
+        is_help=true
+        ;;
     --)
         # Remaining options will be collected
         bu_run_args+=("$1")
         options_finished=true
         shift
         break
-        ;;
-    -h|--help)
-        # Print help
-        is_help=true
         ;;
     ''|-*)
         bu_parse_error_enum "$1"

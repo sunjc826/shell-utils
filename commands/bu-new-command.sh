@@ -44,7 +44,7 @@ while (($#))
 do
     bu_parse_multiselect $# "$1"
     case "$1" in
-    -d|--dir)
+    -d|--dir)# SCRIPT_DIR
         # Directory that the script should be placed in
         # It should be one of 
         # $(printf "  - ${BU_TPUT_BOLD}%s${BU_TPUT_RESET}\n" "${!BU_COMMAND_SEARCH_DIRS[@]}")
@@ -52,23 +52,23 @@ do
         bu_validate_positional "${!shift_by}"
         dir=${!shift_by}
         ;;
-    -n|--name)
+    -n|--name)# SCRIPT_NAME
         # Name of the script, can be given without the ${BU_TPUT_BOLD}.sh${BU_TPUT_RESET} suffix
         bu_parse_positional $# --hint "Name of the script (.sh suffix is optional)"
         name=${!shift_by}
         ;;
-    -f|--force)
+    -f|--force)# _FLAG
         # Overwrite any existing script at the same location
         is_force=true
         ;;
-    --source)
+    --source)# _FLAG
         # This script is not meant to be executed in a new shell, but rather should be sourced
         is_source_only=true
         ;;
-    --directory-irrelevant)
+    --directory-irrelevant)# _FLAG
         is_directory_relevant=false
         ;;
-    -h|--help)
+    -h|--help)# _FLAG
         # Print help
         is_help=true
         ;;
