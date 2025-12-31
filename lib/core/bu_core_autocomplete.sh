@@ -672,9 +672,47 @@ bu_autocomplete_get_autocompletions()
         ret=$?
         has_ansi_colors=${BU_RET_MAP[has_ansi_colors]:-false}
     done
-    BU_RET_MAP=(
-        [has_ansi_colors]=$has_ansi_colors
-    )
+    BU_RET_MAP=([has_ansi_colors]=$has_ansi_colors)
+
+    if ((${#COMPREPLY[@]} == 0))
+    then
+        # Taken from the _variables function from /usr/share/bash-completion/bash_completion
+        if [[ "$cur_word" =~ ^(\$(\{[!#]?)?)([A-Za-z0-9_]*)$ ]]
+        then
+            if [[ "$cur_word" == '${'* ]]
+            then
+                local arrs vars
+                vars=( $(compgen -A variable -P ${BASH_REMATCH[1]} -S '}' -- "${BASH_REMATCH[3]}") )
+                arrs=( $(compgen -A arrayvar -P ${BASH_REMATCH[1]} -S '[' -- "${BASH_REMATCH[3]}") )
+                if ((${#vars[@]} == 1 && ${#arrs[@]} != 0))
+                then
+                    compopt -o nospace &>/dev/null
+                    COMPREPLY+=("${arrs[@]}")
+                else
+                    COMPREPLY+=("${vars[@]}")
+                fi
+            else
+                COMPREPLY+=( $(compgen -A variable -P '$' -- "${BASH_REMATCH[3]}") )
+            fi
+        else
+            if [[ "$cur_word" =~ ^(\$\{[#!]?)([A-Za-z0-9_]*)\[([^]]*)$ ]]
+            then
+                local IFS=$'\n'
+                COMPREPLY+=($(compgen -W '$(printf %s\\n "${!'${BASH_REMATCH[2]}'[@]}")' -P "${BASH_REMATCH[1]}${BASH_REMATCH[2]}[" -S ']}' -- "${BASH_REMATCH[3]}"))
+                if [[ ${BASH_REMATCH[3]} == [@*] ]]; then
+                    COMPREPLY+=("${BASH_REMATCH[1]}${BASH_REMATCH[2]}[${BASH_REMATCH[3]}]}")
+                fi
+                # No __ltrim_colon_completions here for simplicity
+            else
+                if [[ $cur =~ ^\$\{[#!]?[A-Za-z0-9_]*\[.*\]$ ]]
+                then
+                    COMPREPLY+=("$cur}")
+                    # No __ltrim_colon_completions here for simplicity
+                    return 0
+                fi
+            fi
+        fi
+    fi
     return "$ret"
 }
 
@@ -1480,7 +1518,16 @@ __bu_bind_fzf_autocomplete_impl()
     local move_cursor_to_end=$3
     local fzf_dynamic_reload=${4:-false}
     local use_tab_to_confirm=${5:-false}
-    local command_line=($command_line_front)
+
+
+    local command_line_front_after_pipe=${command_line_front#*\$\(}
+    command_line_front_after_pipe=${command_line_front_after_pipe#*\|}
+    command_line_front_after_pipe=${command_line_front_after_pipe#"${command_line_front_after_pipe%%[![:space:]]*}"}
+
+    local command_line_front_before_pipe=${command_line_front:0:${#command_line_front}-${#command_line_front_after_pipe}}
+
+    local command_line=($command_line_front_after_pipe)
+
     tput sc
     local oldstty=$(stty -g </dev/tty)
     __bu_terminal_get_pos2 "$oldstty"
@@ -1490,8 +1537,8 @@ __bu_bind_fzf_autocomplete_impl()
     local ps1_last_row=$(tail -n 1 <<<"${PS1##*\\n}")
     printf "%s" "${ps1_last_row@P}" # Let's print this out ASAP to reduce the duration of flicker (readline will erase the current line during a binding)
 
-    # Technically we should be looking out for \[ (not \]) \], but this simpler regex should suffice
-    local ps1_last_row_no_escape=$(sed -r 's/\\\[[^]]*\\\]//g' <<<"$ps1_last_row")
+    # \[ (not \]) \]
+    local ps1_last_row_no_escape=$(sed -r 's/\\\[([^]]*([^\\]\]|\\[^]])?)*\\\]//g' <<<"$ps1_last_row")
     local ps1_last_row_no_escape_rendered
     printf -v ps1_last_row_no_escape_rendered "%s" "${ps1_last_row_no_escape@P}"
     local col_with_ps1=$((${#ps1_last_row_no_escape_rendered} % COLUMNS))
@@ -1505,7 +1552,7 @@ __bu_bind_fzf_autocomplete_impl()
     fi
     displayed_command_line_back=${displayed_command_line_back/ / ${BU_TPUT_GREY}}
 
-    printf "%s%s%s" "${command_line_front}" "${BU_TPUT_BLUE}${BU_TPUT_UNDERLINE}?${BU_TPUT_RESET}" "$displayed_command_line_back"
+    printf "%s%s%s%s" "${BU_TPUT_GREY}${command_line_front_before_pipe}${BU_TPUT_RESET}" "${command_line_front_after_pipe}" "${BU_TPUT_BLUE}${BU_TPUT_UNDERLINE}?${BU_TPUT_RESET}" "$displayed_command_line_back"
 
     # We need to append a space if we swallowed a space
     if [[ "${command_line_front:${#command_line_front}-1}" = ' ' ]]
@@ -1709,6 +1756,8 @@ __bu_bind_fzf_autocomplete_impl()
         then
             readline_line+=' '
         fi
+
+        readline_line=${command_line_front_before_pipe}${readline_line}
 
         readline_point=${#readline_line}
         readline_line+=$command_line_back
