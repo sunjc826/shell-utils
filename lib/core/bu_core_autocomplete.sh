@@ -1091,22 +1091,44 @@ __bu_autocomplete_completion_func_master_impl()
         "${comp_words[@]:1:comp_cword}"
     )
     COMPREPLY=()
-    local bu_autocomplete_hint
+    
+    local bu_autocomplete_hint=
     local lazy_autocomplete_args=()
     local -A -g bu_parsed_multiselect_arguments=()
     # bu_log_tty reached0
-    if builtin source "${processed_comp_words[@]}" &>/dev/null
-    then
-        lazy_autocomplete_args=("${BU_RET[@]}")
-    fi
-    # bu_log_tty reached3
-    # Scripts might set -e, and because we are sourcing them, we unset it
-    set +ex
-    # bu_log_tty lazy_autocomplete_args="${lazy_autocomplete_args[*]}"
-    
-    bu_autocomplete_initialize_current_completion_options bu
-    __bu_autocomplete_completion_func_master_helper "$completion_command_path" "$cur_word" "$prev_word" "${lazy_autocomplete_args[@]}"
-    local exit_code=$?
+    local exit_code
+    # bu_log_tty
+    # bu_log_tty "__bu_autocomplete_completion_func_master_impl cword[$comp_cword] $(printf "'%s' " "${comp_words[@]}")"
+    # bu_log_tty
+    case "${comp_words[comp_cword]}" in
+    '>'|'>>'|'<')
+        prev_word="${comp_words[comp_cword]}"
+        cur_word=
+        ;;
+    esac
+    case "$prev_word" in
+    '>'|'>>'|'<')
+        bu_autocomplete_initialize_current_completion_options bu
+        compopt -o filenames
+        compopt -o nospace
+        bu_compgen -f -- "$cur_word"
+        exit_code=0
+        ;;
+    *)
+        if builtin source "${processed_comp_words[@]}" &>/dev/null
+        then
+            lazy_autocomplete_args=("${BU_RET[@]}")
+        fi
+        # bu_log_tty reached3
+        # Scripts might set -e, and because we are sourcing them, we unset it
+        set +ex
+        # bu_log_tty lazy_autocomplete_args="${lazy_autocomplete_args[*]}"
+        
+        bu_autocomplete_initialize_current_completion_options bu
+        __bu_autocomplete_completion_func_master_helper "$completion_command_path" "$cur_word" "$prev_word" "${lazy_autocomplete_args[@]}"
+        exit_code=$?
+        ;;
+    esac
 
     local is_nospace=false
     local is_filenames=false
