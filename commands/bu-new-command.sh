@@ -49,7 +49,6 @@ do
         # It should be one of 
         # $(printf "  - ${BU_TPUT_BOLD}%s${BU_TPUT_RESET}\n" "${!BU_COMMAND_SEARCH_DIRS[@]}")
         bu_parse_positional $# --enum "${!BU_COMMAND_SEARCH_DIRS[@]}" enum--
-        bu_validate_positional "${!shift_by}"
         dir=${!shift_by}
         ;;
     -n|--name)# SCRIPT_NAME
@@ -65,7 +64,8 @@ do
         # This script is not meant to be executed in a new shell, but rather should be sourced
         is_source_only=true
         ;;
-    --directory-irrelevant)# _FLAG
+    --no-chdir)# _FLAG
+        # If given, the template used for the script will not automatically enter the script's directory.
         is_directory_relevant=false
         ;;
     -h|--help)# _FLAG
