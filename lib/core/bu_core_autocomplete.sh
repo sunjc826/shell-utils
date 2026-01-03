@@ -1548,8 +1548,13 @@ __bu_bind_fzf_autocomplete_impl()
     local use_tab_to_confirm=${5:-false}
 
 
-    local command_line_front_after_pipe=${command_line_front#*\$\(}
-    command_line_front_after_pipe=${command_line_front_after_pipe#*\|}
+    local command_line_front_after_pipe=${command_line_front}
+    command_line_front_after_pipe=${command_line_front_after_pipe##*'('}
+    command_line_front_after_pipe=${command_line_front_after_pipe##*'{ '} # Note brace requires a space right after
+    command_line_front_after_pipe=${command_line_front_after_pipe##*'||'}
+    command_line_front_after_pipe=${command_line_front_after_pipe##*'&&'}
+    command_line_front_after_pipe=${command_line_front_after_pipe##*';'}
+    command_line_front_after_pipe=${command_line_front_after_pipe##*'|'}
     command_line_front_after_pipe=${command_line_front_after_pipe#"${command_line_front_after_pipe%%[![:space:]]*}"}
 
     local command_line_front_before_pipe=${command_line_front:0:${#command_line_front}-${#command_line_front_after_pipe}}
@@ -1571,14 +1576,14 @@ __bu_bind_fzf_autocomplete_impl()
     printf -v ps1_last_row_no_escape_rendered "%s" "${ps1_last_row_no_escape@P}"
     local col_with_ps1=$((${#ps1_last_row_no_escape_rendered} % COLUMNS))
 
-    local displayed_command_line_back=
-    if [[ "${command_line_back:0:1}" != ' ' ]]
-    then
-        displayed_command_line_back=${BU_TPUT_RED}${command_line_back/ /${BU_TPUT_RESET} }
-    else
-        displayed_command_line_back=$command_line_back
-    fi
-    displayed_command_line_back=${displayed_command_line_back/ / ${BU_TPUT_GREY}}
+    local command_line_back_last_word=${command_line_back%%[[:space:]]*}
+    local command_line_back_no_operator=${command_line_back_last_word}
+    command_line_back_no_operator=${command_line_back_no_operator%%')'*}
+    command_line_back_no_operator=${command_line_back_no_operator%%';'*}
+    command_line_back_no_operator=${command_line_back_no_operator%%'&&'*}
+    command_line_back_no_operator=${command_line_back_no_operator%%'|'*}
+
+    local displayed_command_line_back=${BU_TPUT_RED}${command_line_back_no_operator}${BU_TPUT_RESET}${BU_TPUT_GREY}${command_line_back:${#command_line_back_no_operator}}${BU_TPUT_RESET}
 
     printf "%s%s%s%s" "${BU_TPUT_GREY}${command_line_front_before_pipe}${BU_TPUT_RESET}" "${command_line_front_after_pipe}" "${BU_TPUT_BLUE}${BU_TPUT_UNDERLINE}?${BU_TPUT_RESET}" "$displayed_command_line_back"
 
@@ -1605,7 +1610,7 @@ __bu_bind_fzf_autocomplete_impl()
     if (($? && !${#COMPREPLY[@]}))
     then
         tput rc
-        bu_log_err "bu_autocomplete_get_autocompletions failed"
+        bu_log_err "bu_autocomplete_get_autocompletions ${command_line[0]} ... failed"
         return 1
     fi
     
@@ -1765,16 +1770,10 @@ __bu_bind_fzf_autocomplete_impl()
         local readline_point
         command_line[-1]=$selected_command
         readline_line=${command_line[*]}
-        if [[ "${command_line_back:0:1}" != ' ' ]]
-        then
-            local len=${#command_line_back}
-            command_line_back=${command_line_back#* }
-            # This can happen if command_line_back has no space
-            if [[ ${#command_line_back} = "$len" ]]
-            then
-                command_line_back=
-            fi
-        fi
+        # Remove the last word of command_line_back
+        command_line_back=${command_line_back:${#command_line_back_no_operator}}
+        # Remove a space if any, because we're about to insert one later one (of course, depending on if nospace is set, and some other conditions)
+        command_line_back=${command_line_back# }
         
         # If we are expecting filenames, then if the file is a directory, we're not done, so don't append a space.
         # If nospace is enabled, then don't add a space.
