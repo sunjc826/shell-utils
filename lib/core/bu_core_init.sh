@@ -21,6 +21,11 @@ __bu_init_keybindings()
             bu_log_debug "Mapping shortcut_key[$shortcut_key] to command[${BU_KEY_BINDINGS[$shortcut_key]}]"
             bind -x '"'"$shortcut_key"'": '"${BU_KEY_BINDINGS[$shortcut_key]}"
         done
+
+        if "${BU_AUTOCOMPLETE_BIND_TAB_TO_FZF:-false}"
+        then
+            bu_autocomplete_enable_tab
+        fi
     fi
 }
 

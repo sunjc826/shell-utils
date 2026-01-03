@@ -92,3 +92,5 @@ declare -A -g BU_KEY_BINDINGS=(
     ['\ec']="__bu_bind_fzf_autocomplete_dynamic"
     ['\ez']="bu_autocomplete_toggle_tab"
 )
+
+declare -a -g BU_COMPREPLY_METADATA

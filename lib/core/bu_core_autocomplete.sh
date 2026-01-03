@@ -657,6 +657,7 @@ bu_autocomplete_get_autocompletions()
     local prev_word=
     (( $# >= 2 )) && prev_word=${command_line[-2]}
     COMPREPLY=()
+    BU_COMPREPLY_METADATA=()
     local tries
     bu_log_debug \
         "completion_func[$completion_func]" "completion_command[$completion_command]" "cur_word[$cur_word]" "prev_word[$prev_word]" \
@@ -685,6 +686,7 @@ bu_autocomplete_get_autocompletions()
         # Taken from the _variables function from /usr/share/bash-completion/bash_completion
         if [[ "$cur_word" =~ ^(\$(\{[!#]?)?)([A-Za-z0-9_]*)$ ]]
         then
+            # shellcheck disable=SC2016
             if [[ "$cur_word" == '${'* ]]
             then
                 local arrs vars
@@ -1261,6 +1263,7 @@ __bu_autocomplete_completion_func_cli()
             for (( i = 0; i < ${#COMPREPLY[@]}; i++ ))
             do
                 __bu_cli_command_type "${COMPREPLY[i]}"
+                BU_COMPREPLY_METADATA[i]="[$BU_RET]"
                 case "$BU_RET" in
                 alias)
                     color=$BU_TPUT_VSCODE_DARK_BLUE
@@ -1539,6 +1542,69 @@ __bu_fzf_finish()
 }
 export -f __bu_fzf_finish
 
+
+declare -a -g __BU_PADDING_TABLE=(
+    ''
+    ' '
+    '  '
+    '   '
+    '    '
+    '     '
+    '      '
+    '       '
+    '        '
+    '         '
+    '          '
+    '           '
+    '            '
+    '             '
+    '              '
+    '               '
+    '                '
+    '                 '
+    '                  '
+    '                   '
+    '                    '
+    '                     '
+    '                      '
+    '                       '
+    '                        '
+    '                         '
+    '                          '
+    '                           '
+    '                            '
+    '                             '
+    '                              '
+    '                               '
+    '                                '
+    '                                 '
+    '                                  '
+    '                                   '
+    '                                    '
+    '                                     '
+    '                                      '
+    '                                       '
+    '                                        '
+    '                                         '
+    '                                          '
+    '                                           '
+    '                                            '
+    '                                             '
+    '                                              '
+    '                                               '
+    '                                                '
+    '                                                 '
+    '                                                  '
+    '                                                   '
+    '                                                    '
+    '                                                     '
+    '                                                      '
+    '                                                       '
+    '                                                        '
+    '                                                         '
+    '                                                          '
+)
+
 __bu_bind_fzf_autocomplete_impl()
 {
     local command_line_front=$1
@@ -1546,6 +1612,8 @@ __bu_bind_fzf_autocomplete_impl()
     local move_cursor_to_end=$3
     local fzf_dynamic_reload=${4:-false}
     local use_tab_to_confirm=${5:-false}
+
+    local delimiter=$'\x01'
 
 
     local command_line_front_after_pipe=${command_line_front}
@@ -1605,6 +1673,8 @@ __bu_bind_fzf_autocomplete_impl()
         BU_COMPOPT_CURRENT_COMPLETION_OPTIONS=()
     fi
     BU_RET_MAP=()
+    # "Type info"
+    local -a BU_COMPREPLY_METADATA=()
     # bu_print_var BU_COMPOPT_CURRENT_COMPLETION_OPTIONS > /dev/tty
     bu_autocomplete_get_autocompletions --accept-ansi-colors "${command_line[@]}"
     if (($? && !${#COMPREPLY[@]}))
@@ -1639,11 +1709,24 @@ __bu_bind_fzf_autocomplete_impl()
         then
             for (( i = 0; i < ${#COMPREPLY[@]}; i++ ))
             do
+                # if "$BU_AUTOCOMPLETE_BIND_FZF_DISPLAY_METADATA"
+                # then
+                #     if [[ -d "${COMPREPLY[i]}" ]]
+                #     then
+                #         BU_COMPREPLY_METADATA[i]="[dir]"
+                #     else
+                #         BU_COMPREPLY_METADATA[i]="[file]"
+                #     fi
+                # fi
                 if [[ -d "${COMPREPLY[i]}" && "${COMPREPLY[i]:${#COMPREPLY[i]}-1}" != / ]]
                 then
                     COMPREPLY[i]+=/
                 fi
             done
+            if ((${#COMPREPLY[@]})) && [[ -e ${COMPREPLY[0]} && -e ${COMPREPLY[-1]} ]]
+            then
+                mapfile -t BU_COMPREPLY_METADATA < <(file "${COMPREPLY[@]}" | sed 's/.*: *//' | awk '{printf "[%s]\n", substr($0, 1, 20)}')
+            fi
             mapfile -t COMPREPLY < <(printf "%q\n" "${COMPREPLY[@]}")
 
             # Get some ansi color codes in to make the world more colorful
@@ -1654,7 +1737,8 @@ __bu_bind_fzf_autocomplete_impl()
             #   heuristic by testing more files.
             if ((${#COMPREPLY[@]})) && [[ -e ${COMPREPLY[0]} && -e ${COMPREPLY[-1]} ]]
             then
-                mapfile -t COMPREPLY < <(ls -d --color -- "${COMPREPLY[@]}")
+                # Note: -U is a gnu ls option
+                mapfile -t COMPREPLY < <(ls -d -U --color -- "${COMPREPLY[@]}")
                 is_ansi=true
             fi
         fi
@@ -1663,9 +1747,10 @@ __bu_bind_fzf_autocomplete_impl()
     local row_before_fzf=${BU_RET[0]}
 
     local left_pos=$(( ( col_with_ps1 - 2 + READLINE_POINT - ${#command_line[-1]} ) % COLUMNS))
-    local min_width=$((48 + ${#command_line[-1]}))
+    local min_width=$((60 + ${#command_line[-1]}))
     local right_pos=$(( ((left_pos + min_width) < COLUMNS) ? (left_pos + min_width) : COLUMNS  ))
     left_pos=$(( (right_pos - min_width) > 0 ? (right_pos - min_width) : 0 ))
+    local box_length=$((right_pos - left_pos - 3)) # -3 accounts for the borders
     local right_margin=$(( COLUMNS - right_pos ))
     local fzf_opts=(
         --exit-0
@@ -1679,6 +1764,35 @@ __bu_bind_fzf_autocomplete_impl()
         --margin "0,$right_margin,0,$left_pos"
         --query "${command_line[-1]}"
     )
+
+    if "$BU_AUTOCOMPLETE_BIND_FZF_DISPLAY_METADATA" && (("${#BU_COMPREPLY_METADATA[@]}")) && ((${#COMPREPLY[@]} < 2000))
+    then
+        local i
+        if ! "$is_ansi"
+        then 
+            for i in "${!BU_COMPREPLY_METADATA[@]}"
+            do
+                COMPREPLY[i]=${COMPREPLY[i]}${delimiter}${__BU_PADDING_TABLE[box_length - ${#COMPREPLY[i]} - ${#BU_COMPREPLY_METADATA[i]}]}${BU_TPUT_GREY}${BU_COMPREPLY_METADATA[i]}${BU_TPUT_RESET}
+            done
+        else
+            # Best effort attempt to strip ansi color codes
+            # https://stackoverflow.com/questions/17998978/removing-colors-from-output
+            # ansi2txt seems really good, but let's go dependency free and use sed
+            local -a compreply_no_color
+            mapfile -t compreply_no_color < <(sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,3})*)?[mGK]//g" < <(printf "%s\n" "${COMPREPLY[@]}"))
+            for i in "${!BU_COMPREPLY_METADATA[@]}"
+            do
+                COMPREPLY[i]=${COMPREPLY[i]}${delimiter}${__BU_PADDING_TABLE[box_length - ${#compreply_no_color[i]} - ${#BU_COMPREPLY_METADATA[i]}]}${BU_TPUT_GREY}${BU_COMPREPLY_METADATA[i]}${BU_TPUT_RESET}
+            done
+        fi
+
+        fzf_opts+=(
+            --delimiter "$delimiter"
+            --nth 1
+        )
+
+        is_ansi=true
+    fi
 
     if "$is_ansi"
     then
@@ -1764,6 +1878,10 @@ __bu_bind_fzf_autocomplete_impl()
         fi
     ) && [[ -n "$selected_command" ]]
     then
+        if "$BU_AUTOCOMPLETE_BIND_FZF_DISPLAY_METADATA" && (("${#BU_COMPREPLY_METADATA[@]}"))
+        then
+            selected_command=${selected_command%"${delimiter}"*}
+        fi
         # Bash seems to be bugged sometimes when READLINE_LINE is modified multiple times
         # So we use these temporary variables, and set READLINE_LINE, READLINE_POINT in one shot at the end
         local readline_line
@@ -1937,6 +2055,7 @@ bu_autocomplete_enable_tab()
 {
     bind -x '"\t": "__bu_bind_fzf_tab_autocomplete"'
     BU_AUTOCOMPLETE_IS_CUSTOM_TAB=true
+    bu_log_info "fzf TAB enabled"
 }
 
 bu_autocomplete_disable_tab()
@@ -1945,6 +2064,7 @@ bu_autocomplete_disable_tab()
     # bind -r "\t"
     bind '"\t": complete'
     BU_AUTOCOMPLETE_IS_CUSTOM_TAB=false
+    bu_log_info "fzf TAB disabled"
 }
 
 bu_autocomplete_toggle_tab()
@@ -1952,10 +2072,8 @@ bu_autocomplete_toggle_tab()
     if "$BU_AUTOCOMPLETE_IS_CUSTOM_TAB"
     then
         bu_autocomplete_disable_tab
-        bu_log_info "fzf TAB disabled"
     else
         bu_autocomplete_enable_tab
-        bu_log_info "fzf TAB enabled"
     fi
 }
 
