@@ -630,6 +630,11 @@ bu_autocomplete_get_autocompletions()
     if (($# <= 1))
     then
         bu_compgen -A command "$1"
+        # Technically we should have a separate field, e.g accept metadata
+        if "$BU_AUTOCOMPLETE_ACCEPT_ANSI_COLORS" && ((${#COMPREPLY[@]} < 1000))
+        then
+            mapfile -t BU_COMPREPLY_METADATA < <(type -t "${COMPREPLY[@]}")
+        fi
         return
     fi
 
@@ -1263,7 +1268,7 @@ __bu_autocomplete_completion_func_cli()
             for (( i = 0; i < ${#COMPREPLY[@]}; i++ ))
             do
                 __bu_cli_command_type "${COMPREPLY[i]}"
-                BU_COMPREPLY_METADATA[i]="[$BU_RET]"
+                BU_COMPREPLY_METADATA[i]="$BU_RET"
                 case "$BU_RET" in
                 alias)
                     color=$BU_TPUT_VSCODE_DARK_BLUE
@@ -1709,15 +1714,6 @@ __bu_bind_fzf_autocomplete_impl()
         then
             for (( i = 0; i < ${#COMPREPLY[@]}; i++ ))
             do
-                # if "$BU_AUTOCOMPLETE_BIND_FZF_DISPLAY_METADATA"
-                # then
-                #     if [[ -d "${COMPREPLY[i]}" ]]
-                #     then
-                #         BU_COMPREPLY_METADATA[i]="[dir]"
-                #     else
-                #         BU_COMPREPLY_METADATA[i]="[file]"
-                #     fi
-                # fi
                 if [[ -d "${COMPREPLY[i]}" && "${COMPREPLY[i]:${#COMPREPLY[i]}-1}" != / ]]
                 then
                     COMPREPLY[i]+=/
@@ -1725,7 +1721,7 @@ __bu_bind_fzf_autocomplete_impl()
             done
             if ((${#COMPREPLY[@]})) && [[ -e ${COMPREPLY[0]} && -e ${COMPREPLY[-1]} ]]
             then
-                mapfile -t BU_COMPREPLY_METADATA < <(file "${COMPREPLY[@]}" | sed 's/.*: *//' | awk '{printf "[%s]\n", substr($0, 1, 20)}')
+                mapfile -t BU_COMPREPLY_METADATA < <(file "${COMPREPLY[@]}" | sed 's/.*: *//' | awk '{printf "%s\n", substr($0, 1, 20)}')
             fi
             mapfile -t COMPREPLY < <(printf "%q\n" "${COMPREPLY[@]}")
 
@@ -1743,6 +1739,7 @@ __bu_bind_fzf_autocomplete_impl()
             fi
         fi
     fi
+
     __bu_terminal_get_pos2 "$oldstty"
     local row_before_fzf=${BU_RET[0]}
 
