@@ -587,12 +587,23 @@ bu_parse_error_argn()
 # - `$1`: Command to get the completion function for
 #
 # *Returns*:
-# - `$BU_RET`: Name of the completion function
+# - `$BU_RET`: 
+#   - Name of the completion function if exit code = 0
+#   - Empty if exit code = 1
+#   - The completion spec if exit code = 2
+# - Exit code:
+#   - 0 if completion func is found
+#   - 1 if no completion found
+#   - 2 if non -F completion spec is found
 # ```
 bu_autocomplete_get_completion_func()
 {
     local completion_for=$1
     bu_stdout_to_ret complete -p "$completion_for" 2>/dev/null
+    if [[ -z "$BU_RET" ]]
+    then
+        return 1
+    fi
     case "$BU_RET" in
     *' -F '*)
         # Strip everything before (inclusive of) -F
@@ -601,8 +612,9 @@ bu_autocomplete_get_completion_func()
         BU_RET=${BU_RET%% *}
         ;;
     *)
-        BU_RET=
-        return 1
+        BU_RET=${BU_RET% "$completion_for"}
+        BU_RET=${BU_RET#complete }
+        return 2
     esac
 }
 
@@ -640,15 +652,24 @@ bu_autocomplete_get_autocompletions()
 
     local has_ansi_colors=false
 
-    if ! bu_autocomplete_get_completion_func "$1"
-    then
+    bu_autocomplete_get_completion_func "$1"
+    case "$?" in
+    0);;
+    1)
         __bu_autocomplete_completion_func_default "$1"
         if ! bu_autocomplete_get_completion_func "$1"
         then
             bu_log_err "Failed to get completion func for $1"
             return 1
         fi
-    fi
+        ;;
+    2)
+        # shellcheck disable=SC2086
+        bu_compgen $BU_RET -- "${command_line[-1]}"
+        return 0
+        ;;
+    esac
+
     local completion_func=$BU_RET
     
     local command_line=("$@")
@@ -1706,37 +1727,42 @@ __bu_bind_fzf_autocomplete_impl()
     fi
 
     local is_ansi=$completion_func_has_ansi_colors
-    if "$is_filenames" && ! "$completion_func_has_ansi_colors"
+    if ! "$completion_func_has_ansi_colors"
     then
-        local i
-        # We won't do this processing if COMPREPLY is too big to avoid lag
-        if ((${#COMPREPLY[@]} < 2000))
+        if "$is_filenames"
         then
-            for (( i = 0; i < ${#COMPREPLY[@]}; i++ ))
-            do
-                if [[ -d "${COMPREPLY[i]}" && "${COMPREPLY[i]:${#COMPREPLY[i]}-1}" != / ]]
+            local i
+            # We won't do this processing if COMPREPLY is too big to avoid lag
+            if ((${#COMPREPLY[@]} < 2000))
+            then
+                for (( i = 0; i < ${#COMPREPLY[@]}; i++ ))
+                do
+                    if [[ -d "${COMPREPLY[i]}" && "${COMPREPLY[i]:${#COMPREPLY[i]}-1}" != / ]]
+                    then
+                        COMPREPLY[i]+=/
+                    fi
+                done
+                if ((${#COMPREPLY[@]})) && [[ -e ${COMPREPLY[0]} && -e ${COMPREPLY[-1]} ]]
                 then
-                    COMPREPLY[i]+=/
+                    mapfile -t BU_COMPREPLY_METADATA < <(file "${COMPREPLY[@]}" | sed 's/.*: *//' | awk '{printf "%s\n", substr($0, 1, 20)}')
                 fi
-            done
-            if ((${#COMPREPLY[@]})) && [[ -e ${COMPREPLY[0]} && -e ${COMPREPLY[-1]} ]]
-            then
-                mapfile -t BU_COMPREPLY_METADATA < <(file "${COMPREPLY[@]}" | sed 's/.*: *//' | awk '{printf "%s\n", substr($0, 1, 20)}')
-            fi
-            mapfile -t COMPREPLY < <(printf "%q\n" "${COMPREPLY[@]}")
+                mapfile -t COMPREPLY < <(printf "%q\n" "${COMPREPLY[@]}")
 
-            # Get some ansi color codes in to make the world more colorful
-            # - If completion func already provides ansi colors, then don't proceed 
-            # - Heuristic, if 2 elements (the first and the last) of COMPREPLY
-            #   exist relative to our current working directory, then we assume
-            #   that all the remaining elements also exist. We could strengthen the
-            #   heuristic by testing more files.
-            if ((${#COMPREPLY[@]})) && [[ -e ${COMPREPLY[0]} && -e ${COMPREPLY[-1]} ]]
-            then
-                # Note: -U is a gnu ls option
-                mapfile -t COMPREPLY < <(ls -d -U --color -- "${COMPREPLY[@]}")
-                is_ansi=true
+                # Get some ansi color codes in to make the world more colorful
+                # - If completion func already provides ansi colors, then don't proceed 
+                # - Heuristic, if 2 elements (the first and the last) of COMPREPLY
+                #   exist relative to our current working directory, then we assume
+                #   that all the remaining elements also exist. We could strengthen the
+                #   heuristic by testing more files.
+                if ((${#COMPREPLY[@]})) && [[ -e ${COMPREPLY[0]} && -e ${COMPREPLY[-1]} ]]
+                then
+                    # Note: -U is a gnu ls option
+                    mapfile -t COMPREPLY < <(ls -d -U --color -- "${COMPREPLY[@]}")
+                    is_ansi=true
+                fi
             fi
+        else
+            mapfile -t COMPREPLY < <(printf "%q\n" "${COMPREPLY[@]}")
         fi
     fi
 
