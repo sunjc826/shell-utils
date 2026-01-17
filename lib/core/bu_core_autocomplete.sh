@@ -1113,8 +1113,8 @@ __bu_autocomplete_completion_func_master_helper()
                     case "${bu_parsed_multiselect_arguments[$option]}" in
                     '') 
                         COMPREPLY+=("${current_ansi_color}${option}${reset_ansi_color}")
-                        local docs_no_newline=${bu_script_option_docs[i]//$'\n'/ }
-                        local docs_no_tab=${docs_no_newline//$'\t'/ }
+                        local docs_esc_newline=${bu_script_option_docs[i]//$'\n'/"\n"}
+                        local docs_no_tab=${docs_esc_newline//$'\t'/}
                         BU_COMPREPLY_METADATA+=("<${bu_script_option_synopsis[i]}> ${docs_no_tab}${BU_TPUT_RESET}")
                         ;;
                     1) continue ;;
@@ -2133,6 +2133,17 @@ bu_color_bash()
     printf "%s\n" "$colored_command_line"
 }
 
+export BU_TPUT_UNDERLINE BU_TPUT_RESET
+__bu_bind_fzf_autocomplete_impl_display()
+{
+    local line=$1
+    line=${line//'__ANSI__'/$'\E'}
+    line=${line//'\n'/$'\n'}
+    printf "%s" "$line"
+}
+
+export -f __bu_bind_fzf_autocomplete_impl_display
+
 __bu_bind_fzf_autocomplete_impl()
 {
     local command_line_front=$1
@@ -2316,25 +2327,41 @@ __bu_bind_fzf_autocomplete_impl()
 
     local base_width=60
 
+    local bu_compreply_metadata_no_ansi=()
+    local show_preview=false
+
     if "$BU_AUTOCOMPLETE_BIND_FZF_DISPLAY_METADATA" && (("${#BU_COMPREPLY_METADATA[@]}" > 0)) && ((${#COMPREPLY[@]} < 2000))
     then
-        mapfile -t BU_COMPREPLY_METADATA < <(sed -r -e "s/\x1B\[([0-9]{1,3}(;[0-9]{1,3})*)?[mGK]//g" < <(printf "%s\n" "${BU_COMPREPLY_METADATA[@]}"))
+        mapfile -t bu_compreply_metadata_no_ansi < <(sed -r -e 's/\\n/ /g' -e "s/\x1B\[([0-9]{1,3}(;[0-9]{1,3})*)?[mGK]//g" < <(printf "%s\n" "${BU_COMPREPLY_METADATA[@]}"))
         local total_len=0
-        for ((i=0; i < ${#BU_COMPREPLY_METADATA[@]}; i++))
+        for ((i=0; i < ${#bu_compreply_metadata_no_ansi[@]}; i++))
         do
-            : $((total_len+=${#BU_COMPREPLY_METADATA[i]}))
+            : $((total_len+=${#bu_compreply_metadata_no_ansi[i]}))
         done
-        local avg_len=$(( total_len / ${#BU_COMPREPLY_METADATA[@]} ))
+        local avg_len=$(( total_len / ${#bu_compreply_metadata_no_ansi[@]} ))
+        if (( base_width < avg_len ))
+        then
+            show_preview=true
+        fi
         base_width=$(( base_width > avg_len + 30 ? base_width : avg_len + 30 ))
         base_width=$(( base_width > ${#__BU_PADDING_TABLE[@]} ? ${#__BU_PADDING_TABLE[@]} : base_width ))
     fi
 
+    local preview_window_size=0
+    local borders_width=3
+    if "$show_preview"
+    then
+        preview_window_size=40
+        borders_width=5
+    fi
+
     local left_pos=$(( ( col_with_ps1 - 2 + READLINE_POINT - ${#command_line[-1]} ) % COLUMNS))
-    local min_width=$((base_width + ${#command_line[-1]}))
+    local min_width=$((base_width + preview_window_size + ${#command_line[-1]}))
     local right_pos=$(( ((left_pos + min_width) < COLUMNS) ? (left_pos + min_width) : COLUMNS  ))
     left_pos=$(( (right_pos - min_width) > 0 ? (right_pos - min_width) : 0 ))
-    local box_length=$((right_pos - left_pos - 3)) # -3 accounts for the borders
+    local box_length=$((right_pos - left_pos - preview_window_size - borders_width))
     local right_margin=$(( COLUMNS - right_pos ))
+    
     local fzf_opts=(
         --exit-0
         --select-1
@@ -2353,33 +2380,48 @@ __bu_bind_fzf_autocomplete_impl()
         local i
         local pad
         local min_pad=1
+        # https://github.com/junegunn/fzf/issues/4626
+        BU_COMPREPLY_METADATA=("${BU_COMPREPLY_METADATA[@]//$'\E'/'__ANSI__'}") # Extremely hacky to prevent fzf from swallowing our ansi colors
         if ! "$is_ansi"
         then
-            for i in "${!BU_COMPREPLY_METADATA[@]}"
+            # echo box_length: $box_length
+            for i in "${!bu_compreply_metadata_no_ansi[@]}"
             do
-                BU_COMPREPLY_METADATA[i]=${BU_COMPREPLY_METADATA[i]:0:box_length - ${#COMPREPLY[i]} - min_pad}
-                pad=$((box_length - ${#COMPREPLY[i]} - ${#BU_COMPREPLY_METADATA[i]}))
-                # echo pad: $((box_length - ${#COMPREPLY[i]} - ${#BU_COMPREPLY_METADATA[i]}))
-                COMPREPLY[i]=${COMPREPLY[i]}${delimiter}${__BU_PADDING_TABLE[pad > min_pad ? pad : min_pad]}${BU_TPUT_GREY}${BU_COMPREPLY_METADATA[i]}${BU_TPUT_RESET}
+                bu_compreply_metadata_no_ansi[i]=${bu_compreply_metadata_no_ansi[i]:0:box_length - ${#COMPREPLY[i]}}
+                pad=$((box_length - ${#COMPREPLY[i]} - ${#bu_compreply_metadata_no_ansi[i]}))
+                # echo COMPREPLY: ${#COMPREPLY[i]} bu_compreply_metadata_no_ansi: ${#bu_compreply_metadata_no_ansi[i]} ${bu_compreply_metadata_no_ansi[i]} pad: $pad
+                COMPREPLY[i]=${COMPREPLY[i]}${delimiter}${__BU_PADDING_TABLE[pad > min_pad ? pad : min_pad]}${BU_TPUT_GREY}${bu_compreply_metadata_no_ansi[i]}${BU_TPUT_RESET}${delimiter}${BU_COMPREPLY_METADATA[i]}
             done
         else
             # Best effort attempt to strip ansi color codes
             # https://stackoverflow.com/questions/17998978/removing-colors-from-output
             # ansi2txt seems really good, but let's go dependency free and use sed
             local -a compreply_no_color
-            mapfile -t compreply_no_color < <(sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,3})*)?[mGK]//g" < <(printf "%s\n" "${COMPREPLY[@]}"))
-            for i in "${!BU_COMPREPLY_METADATA[@]}"
+            mapfile -t compreply_no_color < <(sed -r -e 's/\x1B\(B\x1B\[m//g' -e "s/\x1B\[([0-9]{1,3}(;[0-9]{1,3})*)?[mGK]//g" < <(printf "%s\n" "${COMPREPLY[@]}"))
+            # echo box_length: $box_length
+            for i in "${!bu_compreply_metadata_no_ansi[@]}"
             do
-                BU_COMPREPLY_METADATA[i]=${BU_COMPREPLY_METADATA[i]:0:box_length - ${#compreply_no_color[i]} - min_pad}
-                pad=$((box_length - ${#compreply_no_color[i]} - ${#BU_COMPREPLY_METADATA[i]}))
-                COMPREPLY[i]=${COMPREPLY[i]}${delimiter}${__BU_PADDING_TABLE[pad > min_pad ? pad : min_pad]}${BU_TPUT_GREY}${BU_COMPREPLY_METADATA[i]}${BU_TPUT_RESET}
+                bu_compreply_metadata_no_ansi[i]=${bu_compreply_metadata_no_ansi[i]:0:box_length - ${#compreply_no_color[i]}}
+                pad=$((box_length - ${#compreply_no_color[i]} - ${#bu_compreply_metadata_no_ansi[i]}))
+                # printf "%q " compreply_no_color: \"${compreply_no_color[i]}\" ${#compreply_no_color[i]} bu_compreply_metadata_no_ansi: ${bu_compreply_metadata_no_ansi[i]} ${#bu_compreply_metadata_no_ansi[i]} ${bu_compreply_metadata_no_ansi[i]} pad: $pad
+                # echo
+                COMPREPLY[i]=${COMPREPLY[i]}${delimiter}${__BU_PADDING_TABLE[pad > min_pad ? pad : min_pad]}${BU_TPUT_GREY}${bu_compreply_metadata_no_ansi[i]}${BU_TPUT_RESET}${delimiter}${BU_COMPREPLY_METADATA[i]}
             done
         fi
 
         fzf_opts+=(
             --delimiter "$delimiter"
             --nth 1
+            --with-nth 1,2
         )
+
+        if "${show_preview}"
+        then
+            fzf_opts+=(
+                --preview="__bu_bind_fzf_autocomplete_impl_display {3}" 
+                --preview-window=:$preview_window_size:wrap
+            )
+        fi
 
         is_ansi=true
     fi
@@ -2418,9 +2460,11 @@ __bu_bind_fzf_autocomplete_impl()
         'header:#CCCCCC'
         'border:#CCCCCC'
         'gutter:#1F1F1F'
+        'preview-fg:-1'
+        'preview-bg:-1'
     )
     bu_list_join , "${fzf_colors[@]}"
-    fzf_opts+=(--color="$BU_RET")
+    fzf_opts+=(--color=dark,"$BU_RET")
 
     local selected_command
     if selected_command=$(
@@ -2470,7 +2514,7 @@ __bu_bind_fzf_autocomplete_impl()
     then
         if "$BU_AUTOCOMPLETE_BIND_FZF_DISPLAY_METADATA" && (("${#BU_COMPREPLY_METADATA[@]}"))
         then
-            selected_command=${selected_command%"${delimiter}"*}
+            selected_command=${selected_command%%"${delimiter}"*}
         fi
         # Bash seems to be bugged sometimes when READLINE_LINE is modified multiple times
         # So we use these temporary variables, and set READLINE_LINE, READLINE_POINT in one shot at the end
