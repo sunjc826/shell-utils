@@ -43,44 +43,44 @@ while (($#))
 do
     bu_parse_multiselect $# "$1"
     case "$1" in
-    -v|--verb)
+    -v|--verb)# VERB_FILTER
         # Glob pattern to filter by verb
         bu_parse_positional $# --enum "${!BU_COMMAND_VERBS[@]}" enum--
         verb_filter=${!shift_by}
         ;;
-    +v|--allow-empty-verb)
+    +v|--allow-empty-verb)# _FLAG
         # If a command has no associated verb, it is also included in the results
         is_allow_empty_verb=true
         ;;
-    -n|--noun)
+    -n|--noun)# NOUN_FILTER
         # Glob pattern to filter by noun
         bu_parse_positional $# --enum "${!BU_COMMAND_NOUNS[@]}" enum--
         noun_filter=${!shift_by}
         ;;
-    +n|--allow-empty-noun)
+    +n|--allow-empty-noun)# _FLAG
         # If a command has no associated noun, it is also included in the results
         is_allow_empty_noun=true
         ;;
-    -ns|--namespace)
+    -ns|--namespace)# NS_FILTER
         # Glob pattern to filter by namespace
         bu_parse_positional $# --enum "${!BU_COMMAND_NAMESPACES[@]}" enum--
         namespace_filter=${!shift_by}
         ;;
-    +ns|--allow-empty-namespace)
+    +ns|--allow-empty-namespace)# _FLAG
         # If a command has no associated namespace, it is also included in the results
         is_allow_empty_namespace=true
         ;;
-    -t|--type)
+    -t|--type)# TYPE_FILTER
         # Type of the command
         bu_parse_positional $# --enum function execute source alias enum--
         bu_validate_positional "${!shift_by}"
         type_filter=${!shift_by}
         ;;
-    -h|--help)
+    -h|--help)# _FLAG
         # Print help
         is_help=true
         ;;
-    --)
+    --)# _FLAG
         # Remaining options will be collected
         options_finished=true
         shift

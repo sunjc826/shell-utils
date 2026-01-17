@@ -245,6 +245,159 @@ bu_autocomplete_parse_case_block_options_cached()
         bu_stdout_to_ret --lines bu_autocomplete_parse_case_block_options "$function_or_script_path" "$start_indicator" "$end_indicator" "$start_lineno"
 }
 
+bu_autocomplete_parse_case_block_options_v2()
+{
+    local function_or_script_path=$1
+    local start_indicator=${2:-'case .* in'}
+    local end_indicator=$3
+    local start_lineno=$4
+
+    start_indicator=/$start_indicator/
+    if [[ -z "$end_indicator" ]]
+    then
+        end_indicator='! is_in_option && /^[[:space:]]*esac[[:space:]]*/'
+    else
+        end_indicator=/$end_indicator/
+    fi
+
+    cat <<EOF
+local -a bu_script_options=() bu_script_option_synopsis=() bu_script_option_docs=()
+EOF
+
+    # bu_log_debug "end_lineno[$end_lineno] start_row[$start_row]"
+
+    if bu_symbol_is_function "$function_or_script_path"
+    then
+        declare -f "$function_or_script_path"
+    else
+        cat "$function_or_script_path"
+    fi |\
+    awk '
+    NR < '"$start_lineno"' { next }
+    '"$start_indicator"' {
+        if (!is_start) {
+            is_start = 1
+            idx = -1
+            outside = 0
+            in_alternatives = 1
+            pre_documentation = 2
+            in_documentation = 3
+            post_documentation = 4
+            state = 0
+            is_in_option = 0
+            is_in_documentation = 0
+
+            case_count = 0
+            debug_print = 0
+        }
+    }
+    
+    ! is_start { next }
+
+    {
+        if (debug_print) {
+            printf "# state=%s\n", state 
+        } 
+    }
+
+    { line = $0 }
+
+    state < pre_documentation && ( \
+        ( /^[[:space:]]*'"$__BU_AUTOCOMPLETE_OPTION_REGEX"'\|\\/ && gsub( /\|\\/, "", line ) ) \
+    ) {
+        if (debug_print) {
+            printf "# 1: %s\n", NR
+        }
+        gsub(/^[[:space:]]*/, "", line)
+        if ( state == outside ) {
+            idx = idx + 1
+            state = in_alternatives
+            printf "bu_script_options[%d]=\"%s\n", idx, line
+        } else {
+            printf "%s\n", line
+        }
+        next
+    }
+
+    state < pre_documentation && ( \
+        ( /^[[:space:]]*'"$__BU_AUTOCOMPLETE_OPTION_REGEX"'\)/ && gsub( /\).*/, "", line) ) \
+    ) {
+        if (debug_print) {
+            printf "# 2: %s\n", NR
+        }
+        gsub(/^[[:space:]]*/, "", line)
+
+        if ( state == outside ) {
+            idx = idx + 1
+            printf "bu_script_options[%d]=\"%s\"\n", idx, line
+
+            option_parameter_description = $0
+            if (! sub(/.*\) *# */, "", option_parameter_description)) {
+                option_parameter_description = ""
+            }
+            printf "bu_script_option_synopsis[%d]=\"%s\"\n", idx, option_parameter_description
+        } else {
+            printf "%s\"\n", line
+        }
+        printf "bu_script_option_docs[%d]=\"", idx, line
+        state = pre_documentation
+        next
+    }
+
+    { line = $0 }
+
+    state == pre_documentation {
+        if (debug_print) {
+            printf "# 3: %s\n", NR
+        }
+        if ( $0 ~ /^[[:space:]]*# ?.*/ ) {
+            state = in_documentation
+        } else {
+            state = post_documentation
+            printf "\"\n"
+        }
+    }
+
+    state == in_documentation {
+        if (debug_print) {
+            printf "# 4: %s\n", NR
+        }
+        if ( $0 ~ /^[[:space:]]*# ?.*/ ) {
+            sub( /^[[:space:]]*# ?/, "", line )
+            print line
+        } else {
+            state = post_documentation
+            printf "\"\n"
+        }
+    }
+
+    state == post_documentation && /[[:space:]]*case .* in[[:space:]]*/ {
+        ++case_count;
+        if (debug_print) {
+            printf "# 5: %s\n", NR
+        }
+    }
+
+    state == post_documentation && /[[:space:]]*esac[[:space:]]*/ {
+        --case_count;
+        if (debug_print) {
+            printf "# 6: %s\n", NR
+        }
+        next;
+    }
+
+    state == post_documentation && !case_count && /.*;;[[:space:]]*$/ {
+        if (debug_print) {
+            printf "# 7: %s\n", NR
+        }
+        state = outside
+    }
+
+    '"$end_indicator"' && !case_count { exit 0 }
+    '
+}
+
+
 bu_autohelp_parse_case_block_help()
 {
     local function_or_script_path=$1
@@ -928,8 +1081,12 @@ __bu_autocomplete_completion_func_master_helper()
                 ;;
             esac
             # bu_print_var bu_parsed_multiselect_arguments >/dev/tty
-            while read -r -a BU_RET
+            local -a bu_script_options bu_script_option_synopsis bu_script_option_docs
+            eval "$(bu_autocomplete_parse_case_block_options_v2 "$script_path" "" "" "$script_lineno")"
+
+            for ((i=0; i<${#bu_script_options[@]}; i++))
             do
+                bu_str_split '|' "${bu_script_options[i]}"
                 # Some heuristics:
                 # If ${BU_RET[@]} is of length 2, and one of them is short-form, and the other is long-form
                 # e.g. -d --dir
@@ -954,11 +1111,16 @@ __bu_autocomplete_completion_func_master_helper()
                 for option in "${BU_RET[@]}"; do
                     # TODO: Filtering here
                     case "${bu_parsed_multiselect_arguments[$option]}" in
-                    '') COMPREPLY+=("${current_ansi_color}${option}${reset_ansi_color}") ;;
+                    '') 
+                        COMPREPLY+=("${current_ansi_color}${option}${reset_ansi_color}")
+                        local docs_no_newline=${bu_script_option_docs[i]//$'\n'/ }
+                        local docs_no_tab=${docs_no_newline//$'\t'/ }
+                        BU_COMPREPLY_METADATA+=("<${bu_script_option_synopsis[i]}> ${docs_no_tab}${BU_TPUT_RESET}")
+                        ;;
                     1) continue ;;
                     esac
                 done
-            done < <(bu_autocomplete_parse_case_block_options "$script_path" "" "" "$script_lineno")
+            done
             ;;
         --cwd)
             should_restore_cwd=true
@@ -1078,7 +1240,27 @@ __bu_autocomplete_completion_func_master_helper()
     # Note that if ansi colors are enabled, we must do the filtering up top individually (if we want to, but this can be a TODO)!
     if ! "$has_ansi_colors"
     then
-        bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
+        
+        if ((${#BU_COMPREPLY_METADATA[@]}>0))
+        then
+            for ((i=0; i < ${#COMPREPLY[@]}; i++))
+            do
+                COMPREPLY[i]="${COMPREPLY[i]}"%"$i"
+            done
+            # bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
+            mapfile -t COMPREPLY < <(compgen -W "${COMPREPLY[*]}" -- "$cur_word")
+            local idx
+            local filtered_bu_compreply_metadata=()
+            for ((i=0; i < ${#COMPREPLY[@]}; i++))
+            do
+                idx=${COMPREPLY[i]#*\%}
+                COMPREPLY[i]=${COMPREPLY[i]%\%*}
+                filtered_bu_compreply_metadata+=("${BU_COMPREPLY_METADATA[idx]}")
+            done
+            BU_COMPREPLY_METADATA=("${filtered_bu_compreply_metadata[@]}")
+        else
+            bu_compgen -W "${COMPREPLY[*]}" -- "$cur_word"
+        fi
     fi
     cd "$original_cwd"
     BU_RET_MAP=([has_ansi_colors]=$has_ansi_colors)
@@ -1629,6 +1811,36 @@ declare -a -g __BU_PADDING_TABLE=(
     '                                                        '
     '                                                         '
     '                                                          '
+    '                                                           '
+    '                                                            '
+    '                                                             '
+    '                                                              '
+    '                                                               '
+    '                                                                '
+    '                                                                 '
+    '                                                                  '
+    '                                                                   '
+    '                                                                    '
+    '                                                                     '
+    '                                                                      '
+    '                                                                       '
+    '                                                                        '
+    '                                                                         '
+    '                                                                          '
+    '                                                                           '
+    '                                                                            '
+    '                                                                             '
+    '                                                                              '
+    '                                                                               '
+    '                                                                                '
+    '                                                                                 '
+    '                                                                                  '
+    '                                                                                   '
+    '                                                                                    '
+    '                                                                                     '
+    '                                                                                      '
+    '                                                                                       '
+    '                                                                                        '
 )
 
 # Let's parse without bothering to tokenize first
@@ -2101,8 +2313,24 @@ __bu_bind_fzf_autocomplete_impl()
     __bu_terminal_get_pos2 "$oldstty"
     local row_before_fzf=${BU_RET[0]}
 
+
+    local base_width=60
+
+    if "$BU_AUTOCOMPLETE_BIND_FZF_DISPLAY_METADATA" && (("${#BU_COMPREPLY_METADATA[@]}" > 0)) && ((${#COMPREPLY[@]} < 2000))
+    then
+        mapfile -t BU_COMPREPLY_METADATA < <(sed -r -e "s/\x1B\[([0-9]{1,3}(;[0-9]{1,3})*)?[mGK]//g" < <(printf "%s\n" "${BU_COMPREPLY_METADATA[@]}"))
+        local total_len=0
+        for ((i=0; i < ${#BU_COMPREPLY_METADATA[@]}; i++))
+        do
+            : $((total_len+=${#BU_COMPREPLY_METADATA[i]}))
+        done
+        local avg_len=$(( total_len / ${#BU_COMPREPLY_METADATA[@]} ))
+        base_width=$(( base_width > avg_len + 30 ? base_width : avg_len + 30 ))
+        base_width=$(( base_width > ${#__BU_PADDING_TABLE[@]} ? ${#__BU_PADDING_TABLE[@]} : base_width ))
+    fi
+
     local left_pos=$(( ( col_with_ps1 - 2 + READLINE_POINT - ${#command_line[-1]} ) % COLUMNS))
-    local min_width=$((60 + ${#command_line[-1]}))
+    local min_width=$((base_width + ${#command_line[-1]}))
     local right_pos=$(( ((left_pos + min_width) < COLUMNS) ? (left_pos + min_width) : COLUMNS  ))
     left_pos=$(( (right_pos - min_width) > 0 ? (right_pos - min_width) : 0 ))
     local box_length=$((right_pos - left_pos - 3)) # -3 accounts for the borders
@@ -2123,11 +2351,16 @@ __bu_bind_fzf_autocomplete_impl()
     if "$BU_AUTOCOMPLETE_BIND_FZF_DISPLAY_METADATA" && (("${#BU_COMPREPLY_METADATA[@]}")) && ((${#COMPREPLY[@]} < 2000))
     then
         local i
+        local pad
+        local min_pad=1
         if ! "$is_ansi"
-        then 
+        then
             for i in "${!BU_COMPREPLY_METADATA[@]}"
             do
-                COMPREPLY[i]=${COMPREPLY[i]}${delimiter}${__BU_PADDING_TABLE[box_length - ${#COMPREPLY[i]} - ${#BU_COMPREPLY_METADATA[i]}]}${BU_TPUT_GREY}${BU_COMPREPLY_METADATA[i]}${BU_TPUT_RESET}
+                BU_COMPREPLY_METADATA[i]=${BU_COMPREPLY_METADATA[i]:0:box_length - ${#COMPREPLY[i]} - min_pad}
+                pad=$((box_length - ${#COMPREPLY[i]} - ${#BU_COMPREPLY_METADATA[i]}))
+                # echo pad: $((box_length - ${#COMPREPLY[i]} - ${#BU_COMPREPLY_METADATA[i]}))
+                COMPREPLY[i]=${COMPREPLY[i]}${delimiter}${__BU_PADDING_TABLE[pad > min_pad ? pad : min_pad]}${BU_TPUT_GREY}${BU_COMPREPLY_METADATA[i]}${BU_TPUT_RESET}
             done
         else
             # Best effort attempt to strip ansi color codes
@@ -2137,7 +2370,9 @@ __bu_bind_fzf_autocomplete_impl()
             mapfile -t compreply_no_color < <(sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,3})*)?[mGK]//g" < <(printf "%s\n" "${COMPREPLY[@]}"))
             for i in "${!BU_COMPREPLY_METADATA[@]}"
             do
-                COMPREPLY[i]=${COMPREPLY[i]}${delimiter}${__BU_PADDING_TABLE[box_length - ${#compreply_no_color[i]} - ${#BU_COMPREPLY_METADATA[i]}]}${BU_TPUT_GREY}${BU_COMPREPLY_METADATA[i]}${BU_TPUT_RESET}
+                BU_COMPREPLY_METADATA[i]=${BU_COMPREPLY_METADATA[i]:0:box_length - ${#compreply_no_color[i]} - min_pad}
+                pad=$((box_length - ${#compreply_no_color[i]} - ${#BU_COMPREPLY_METADATA[i]}))
+                COMPREPLY[i]=${COMPREPLY[i]}${delimiter}${__BU_PADDING_TABLE[pad > min_pad ? pad : min_pad]}${BU_TPUT_GREY}${BU_COMPREPLY_METADATA[i]}${BU_TPUT_RESET}
             done
         fi
 
