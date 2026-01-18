@@ -93,4 +93,9 @@ declare -A -g BU_KEY_BINDINGS=(
     ['\ez']="bu_autocomplete_toggle_tab"
 )
 
+# 1 metadata entry corresponds to 1 compreply entry
+# Meant for display in fzf completion mode
 declare -a -g BU_COMPREPLY_METADATA
+
+# Meant for display in fzf completion mode
+declare -g BU_COMPREPLY_HINT

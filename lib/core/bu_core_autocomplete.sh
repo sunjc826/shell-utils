@@ -1355,12 +1355,22 @@ __bu_autocomplete_completion_func_master_impl()
     fi
 
     # bu_log_tty "COMPREPLY=${COMPREPLY[*]}"
-    if ((!${#COMPREPLY[@]})) && [[ -n "$bu_autocomplete_hint" ]]
+    if [[ -n "$bu_autocomplete_hint" ]]
     then
         compopt -o nosort # Bash 4.4+
-        # https://stackoverflow.com/questions/70538848/simulate-bashs-compreply-response-without-actually-completing-it
-        # Add an invisible element
-        COMPREPLY=("Hint: $bu_autocomplete_hint" $'\xC2\xA0')
+        if ! "$BU_AUTOCOMPLETE_ACCEPT_ANSI_COLORS"
+        then
+            if ((!${#COMPREPLY[@]}))
+            then
+                # regular bash completion
+                # https://stackoverflow.com/questions/70538848/simulate-bashs-compreply-response-without-actually-completing-it
+                # Add an invisible element
+                COMPREPLY=("Hint: $bu_autocomplete_hint" $'\xC2\xA0')
+            fi
+        else
+            # fzf autocomplete case
+            BU_COMPREPLY_HINT=$bu_autocomplete_hint
+        fi
     fi
     if ((exit_code == BU_AUTOCOMPLETE_EXIT_CODE_RETRY))
     then
@@ -2254,6 +2264,7 @@ __bu_bind_fzf_autocomplete_impl()
         BU_COMPOPT_CURRENT_COMPLETION_OPTIONS=()
     fi
     BU_RET_MAP=()
+    local BU_COMPREPLY_HINT=
     # "Type info"
     local -a BU_COMPREPLY_METADATA=()
     # bu_print_var BU_COMPOPT_CURRENT_COMPLETION_OPTIONS > /dev/tty
@@ -2264,7 +2275,18 @@ __bu_bind_fzf_autocomplete_impl()
         bu_log_err "bu_autocomplete_get_autocompletions ${command_line[0]} ... failed"
         return 1
     fi
-    
+
+    if ((!${#COMPREPLY[@]}))
+    then
+        if [[ -n "${BU_COMPREPLY_HINT}" ]]
+        then
+            printf "\n%s\n" "${BU_TPUT_VSCODE_YELLOW}Hint:${BU_TPUT_RESET} ${BU_COMPREPLY_HINT}"
+        fi
+        tput rc
+
+        return 0
+    fi
+
     local completion_func_has_ansi_colors=${BU_RET_MAP[has_ansi_colors]:-false}
     # bu_print_var BU_COMPOPT_CURRENT_COMPLETION_OPTIONS > /dev/tty
     local is_nospace=false
@@ -2375,6 +2397,11 @@ __bu_bind_fzf_autocomplete_impl()
         --query "${command_line[-1]}"
     )
 
+    if [[ -n "$BU_COMPREPLY_HINT" ]]
+    then
+        fzf_opts+=(--header "Hint: $BU_COMPREPLY_HINT")
+    fi
+
     if "$BU_AUTOCOMPLETE_BIND_FZF_DISPLAY_METADATA" && (("${#BU_COMPREPLY_METADATA[@]}")) && ((${#COMPREPLY[@]} < 2000))
     then
         local i
@@ -2457,7 +2484,6 @@ __bu_bind_fzf_autocomplete_impl()
         'prompt:#DCDCAA'
         'info:#B5CEA8'
         'pointer:#CCCCCC' # VSCode Dark+ regular text, approx xterm 188
-        'header:#CCCCCC'
         'border:#CCCCCC'
         'gutter:#1F1F1F'
         'preview-fg:-1'
