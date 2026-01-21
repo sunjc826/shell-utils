@@ -1887,13 +1887,12 @@ __bu_parse_bash()
     local is_post_env=false # Whether we have parsed all environment variables
     local is_prev_space=true # Whether we have encountered a space, which is used to separate words. Initialized to true
     local is_op_prev=
-    local is_wordbreak=
     local char
-    local prev_char
     local op
     local is_new_or_append_word
     local is_open_bracket
     local is_close_bracket
+    local is_same_op
     for ((i = 0; i < ${#command_line_front}; i++))
     do
         op=${__bu_parse_bash_token_stack[${__bu_parse_bash_op_idx_stack[-1]}]}
@@ -1901,28 +1900,14 @@ __bu_parse_bash()
         if ((${#__bu_parse_bash_token_stack[@]} == "${__bu_parse_bash_op_idx_stack[-1]}" + 1))
         then
             is_op_prev=true
-            is_wordbreak=true
         else
             is_op_prev=false
-            case "$prev_char" in
-            '|'|'&'|';'|' ') 
-                case "$op" in
-                "'"|'"')
-                    is_wordbreak=false
-                    ;;
-                *)
-                    is_wordbreak=true
-                    ;;
-                esac
-                ;;
-            *)
-                is_wordbreak=false
-                ;;
-            esac
         fi
         is_new_or_append_word=false
         is_open_bracket=false
         is_close_bracket=false
+        is_same_op=false
+        is_separator=false # &, |, ;
         case "$char" in
         '{')
             case "$op" in
@@ -1974,39 +1959,58 @@ __bu_parse_bash()
             ;;
         ')')
             case "$op" in
-            '$('|'(')
-                is_close_bracket=true
+            '"'|"'")
+                is_new_or_append_word=true
                 ;;
-            '((')
-                case "${__bu_parse_bash_token_stack[-1]}" in
-                ')')
-                    __bu_parse_bash_token_stack[-1]='))'
-                    __bu_parse_bash_color_stack[-1]="${bracket_colors[--bracket_depth]}"
-                    unset -v '__bu_parse_bash_op_idx_stack[-1]'
-                    ;;
-                *)
-                    __bu_parse_bash_token_stack+=(')')
-                    __bu_parse_bash_color_stack+=('')
-                    ;;
-                esac
+            ')')
+                if ! "$is_op_prev"
+                then
+                    bu_log_err "Syntax error"
+                    return 1
+                fi
+                is_close_bracket=true
+                is_same_op=true
+                ;;
+            *)
+                is_close_bracket=true
                 ;;
             esac
             ;;
         '}')
             case "$op" in
-            '${'*|'{')
+            '"'|"'")
+                is_new_or_append_word=true
+                ;;
+            *)
                 is_close_bracket=true
                 ;;
             esac
             ;;
-        '|'|';') 
+        '|'|'&')
+            case "$op" in
+            "'"|'"')
+                is_new_or_append_word=true
+                ;;
+            "$char")
+                if "$is_op_prev"
+                then
+                    __bu_parse_bash_token_stack[-1]+=$char
+                else
+                    is_separator=true
+                fi
+                ;;
+            *)
+                is_separator=true
+                ;;
+            esac
+            ;;
+        ';') 
             case "$op" in
             "'"|'"')
                 is_new_or_append_word=true
                 ;;
             *)
-                __bu_parse_bash_token_stack+=("$char")
-                __bu_parse_bash_color_stack+=("$BU_TPUT_VSCODE_BLUE")
+                is_separator=true
                 ;;
             esac
             ;;
@@ -2084,7 +2088,7 @@ __bu_parse_bash()
 
         if "$is_new_or_append_word"
         then
-            if "$is_wordbreak"
+            if "$is_op_prev"
             then
                 __bu_parse_bash_token_stack+=('')
                 case "$op" in
@@ -2106,15 +2110,86 @@ __bu_parse_bash()
         fi
         if "$is_close_bracket"
         then
-            __bu_parse_bash_token_stack+=("${char}" '')
+            if "$is_same_op"
+            then
+                __bu_parse_bash_token_stack[-1]+=$char
+            else
+                __bu_parse_bash_op_idx_stack+=("${#__bu_parse_bash_token_stack[@]}")
+                __bu_parse_bash_token_stack+=("$char")
+            fi
+            # Find the nearest closing bracket
+            for ((j=${#__bu_parse_bash_op_idx_stack[@]}-2; j > 0; j--))
+            do
+                case "${__bu_parse_bash_token_stack[${__bu_parse_bash_op_idx_stack[j]}]}" in
+                '|'|'||'|'&&')
+                    ;;
+                *)
+                    break
+                    ;;
+                esac
+            done
+            case "${__bu_parse_bash_token_stack[${__bu_parse_bash_op_idx_stack[j]}]}" in
+            '('|'$(')
+                if [[ "${__bu_parse_bash_token_stack[-1]}" != ')' ]]
+                then
+                    bu_log_err "Parse error, expected ), got ${__bu_parse_bash_token_stack[-1]}"
+                    return 1
+                fi
+                ;;
+            '${'*|'{')
+                if [[ "${__bu_parse_bash_token_stack[-1]}" != '}' ]]
+                then
+                    bu_log_err "Parse error, expected }, got ${__bu_parse_bash_token_stack[-1]}"
+                    return 1
+                fi
+                ;;
+            '(('|'$((')
+                if [[ "${__bu_parse_bash_token_stack[-1]}" = ')' ]]
+                then
+                    continue
+                fi
+                if [[ "${__bu_parse_bash_token_stack[-1]}" != '))' ]]
+                then
+                    bu_log_err "Parse error, expected )), got ${__bu_parse_bash_token_stack[-1]}"
+                    return 1
+                fi
+                ;;
+            '"')
+                if [[ "${__bu_parse_bash_token_stack[-1]}" != '"' ]]
+                then
+                    bu_log_err "Parse error, expected \", got ${__bu_parse_bash_token_stack[-1]}"
+                    return 1
+                fi
+                ;;
+            "'")
+                if [[ "${__bu_parse_bash_token_stack[-1]}" != "'" ]]
+                then
+                    bu_log_err "Parse error, expected ', got ${__bu_parse_bash_token_stack[-1]}"
+                    return 1
+                fi
+                ;;
+            *)
+                # printf -- "- %s\n" "${__bu_parse_bash_token_stack[@]}"
+                # printf -- "-- %s\n" "${__bu_parse_bash_op_idx_stack[@]}"
+                bu_log_err "Unexpected operator [${__bu_parse_bash_token_stack[${__bu_parse_bash_op_idx_stack[j]}]}]"
+                return 1
+                ;;
+            esac
+            __bu_parse_bash_token_stack+=('')
             __bu_parse_bash_color_stack+=("${bracket_colors[--bracket_depth]}" '')
-            unset -v '__bu_parse_bash_op_idx_stack[-1]'
+            local len=${#__bu_parse_bash_op_idx_stack[@]}
+            for ((;j < len; j++))
+            do
+                unset -v '__bu_parse_bash_op_idx_stack['"$j"']'
+            done
         fi
-
-        prev_char=$char
+        if "$is_separator"
+        then
+            __bu_parse_bash_op_idx_stack+=("${#__bu_parse_bash_token_stack[@]}")
+            __bu_parse_bash_token_stack+=("$char")
+            __bu_parse_bash_color_stack+=("$BU_TPUT_VSCODE_BLUE")
+        fi
     done
-
-    
 }
 
 bu_color_bash()
@@ -2179,23 +2254,9 @@ __bu_bind_fzf_autocomplete_impl()
     local -a token_stack color_stack op_idx_stack 
     local i colored_command_line
     __bu_parse_bash token_stack color_stack op_idx_stack "$command_line_front"
-    for ((i = ${#token_stack[@]} - 1; i > ${op_idx_stack[-1]}; i--))
-    do
-        case "${token_stack[i]}" in
-        '|'|'&&'|'||'|';')
-            case "${color_stack[i]}" in
-            "$BU_TPUT_VSCODE_ORANGE")
-                ;;
-            *)
-                break
-                ;;
-            esac
-            ;;
-        esac
-    done
-    : $((i++))
+
     local environment_vars=
-    for ((; i < ${#token_stack[@]}; i++))
+    for ((i = ${op_idx_stack[-1]} + 1; i < ${#token_stack[@]}; i++))
     do
         case "${token_stack[i]}" in
         *=*|' ')
@@ -2208,7 +2269,8 @@ __bu_bind_fzf_autocomplete_impl()
             ;;
         esac
     done
-    # printf "!%s;" "${token_stack[@]}"; echo
+    # printf -- "- %s\n" "${token_stack[@]}"
+    # printf -- "-- %s\n" "${op_idx_stack[@]}"
     bu_list_join '' "${token_stack[@]:i}"
     local command_line_front_after_pipe=${BU_RET#"${BU_RET%%[![:space:]]*}"} # Remove any leading space
     command_name=${command_name#"${command_name%%[![:space:]]*}"}
@@ -2217,6 +2279,8 @@ __bu_bind_fzf_autocomplete_impl()
 
     local command_line_front_before_pipe=${command_line_front:0:${#command_line_front}-${#command_line_front_after_pipe}}
     command_line_front_before_pipe=${command_line_front_before_pipe%$environment_vars}
+
+    # printf "%s\n" "$command_line_front_before_pipe"
 
     local command_line=($command_line_front_after_pipe)
 
