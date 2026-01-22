@@ -6,7 +6,7 @@ nav-order: 5
 ---
 
 ## Using bu as a scripting dependency
-The following variables and functions are used by libraries invoking bash-utils to change its behavior at initialization time.
+The following variables and functions are used by libraries invoking BashTab to change its behavior at initialization time.
 
 ### Initialization variables
 Bash variables are all strings/arrays of strings/maps of strings, alongside some variable attributes (e.g. number `-i`, readonly `-r` etc.) but we can interpret them differently.
@@ -90,7 +90,7 @@ There are library functions that are not used by the core scripting framework, b
 
 ### Running Tests
 
-bash-utils uses the [BATS (Bash Automated Testing System)](https://github.com/bats-core/bats-core) framework for unit testing. Currently, tests are written for the core functions.
+BashTab uses the [BATS (Bash Automated Testing System)](https://github.com/bats-core/bats-core) framework for unit testing. Currently, tests are written for the core functions.
 
 #### Prerequisites
 
@@ -162,7 +162,7 @@ The outer triple backticks allow bash-language-server to properly parse the mark
 
 #### Variable Naming Conventions
 
-- **Global Variables**: Prefix with `BU_` to namespace them within bash-utils (e.g., `BU_VERSION`, `BU_CONFIG_PATH`)
+- **Global Variables**: Prefix with `BU_` to namespace them within BashTab (e.g., `BU_VERSION`, `BU_CONFIG_PATH`)
 - **Functions**: Prefix with `bu_` to namespace them (e.g., `bu_init`, `bu_parse_args`)
 - **Return Values**: 
   - Use `BU_RET` to return strings and non-associative arrays. The value can be either scalar or array depending on the function's purpose
@@ -171,13 +171,13 @@ The outer triple backticks allow bash-language-server to properly parse the mark
 
 ### Building a Single-File Distribution
 
-To consolidate the entire bash-utils library into a single file for easier distribution or embedding:
+To consolidate the entire BashTab library into a single file for easier distribution or embedding:
 
 ```sh
 source ./activate --__bu-inline ./inline.sh
 ```
 
-This generates an `inline.sh` file containing the complete bash-utils library.
+This generates an `inline.sh` file containing the complete BashTab library.
 `--__bu-inline` makes certain assumptions about where source statements are invoked, so this might break at some points.
 
 

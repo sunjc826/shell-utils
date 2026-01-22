@@ -11,14 +11,14 @@ BU_REPO_DIR=$PWD
 BU_REPO_SHA1=$(git rev-parse @)
 if [[ -n "$BU_REPO_SHA1_PREV" && "$BU_REPO_SHA1" != "$BU_REPO_SHA1_PREV" ]]
 then
-    echo "WARN    A different bash-utils version is being activated: Prev[$BU_REPO_SHA1_PREV@$BU_REPO_DIR_PREV] Cur[$BU_REPO_SHA1@$BU_REPO_DIR]" >&2
+    echo "WARN    A different BashTab version is being activated: Prev[$BU_REPO_SHA1_PREV@$BU_REPO_DIR_PREV] Cur[$BU_REPO_SHA1@$BU_REPO_DIR]" >&2
 fi
 
 source ./bu_custom_source.sh --__bu-once
 source ./lib/core/bu_core_user_defined.sh --__bu-once
 
 # The BU_MODULE_PATH is the only variable that should be needed to get all external "libraries"
-# i.e. bash-utils related libraries setup.
+# i.e. BashTab related libraries setup.
 # In particular, all the callbacks can be setup in these scripts
 # To make it export-friendly, we will use a colon-separated string rather than an array.
 if [[ -z "$BU_MODULE_PATH" ]]

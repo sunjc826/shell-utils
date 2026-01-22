@@ -46,8 +46,8 @@ do
         namespace_style=${!shift_by}
         ;;
     -p|--pull)# _FLAG
-        # Pull from the git repo, works when using bash-utils from a submodule too
-        # Currently, the activated version of bash-utils is at BU_DIR[$BU_DIR]
+        # Pull from the git repo, works when using BashTab from a submodule too
+        # Currently, the activated version of BashTab is at BU_DIR[$BU_DIR]
         is_git_pull=true
         ;;
     +i|--no-init)# _FLAG

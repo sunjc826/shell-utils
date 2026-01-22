@@ -1,7 +1,7 @@
 # The purpose of early init is so that we can make some things available to downstream repos
 # to use in their pre-init callbacks. Most importantly, the builtin bu commands.
 # This avoids some of the need to do double initialization, i.e.
-# initialize bash-utils fully just to have the bu builtin commands,
+# initialize BashTab fully just to have the bu builtin commands,
 # then call the bu builtin commands inside a downstream repo activation script,
 # then reinitialize again.
 if false; then

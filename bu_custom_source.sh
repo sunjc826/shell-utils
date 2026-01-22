@@ -1,4 +1,4 @@
-# This file does not depend on any other file in bash-utils, because we need to 
+# This file does not depend on any other file in BashTab, because we need to 
 # define a custom source func ahead of other functions
 # e.g. to ensure the correctness of --__bu-once
 

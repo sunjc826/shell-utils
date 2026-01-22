@@ -9,16 +9,16 @@ nav-order: 2
 
 ### 1. Clone the Repository
 
-Start by cloning the bash-utils repository:
+Start by cloning the BashTab repository:
 
 ```bash
-git clone git@github.com:sunjc826/bash-utils.git
-cd bash-utils
+git clone git@github.com:sunjc826/BashTab.git
+cd BashTab
 ```
 
 ### 2. Install Optional Dependencies
 
-While bash-utils works without additional dependencies, we recommend installing `fzf` for enhanced interactive features:
+While BashTab works without additional dependencies, we recommend installing `fzf` for enhanced interactive features:
 
 **On Debian-based systems (Ubuntu, Debian, etc.):**
 ```bash
@@ -30,9 +30,9 @@ Refer to the [fzf installation guide](https://github.com/junegunn/fzf#installati
 
 ## Initialization
 
-### Activate bash-utils
+### Activate BashTab
 
-Once you have the repository cloned, initialize bash-utils by sourcing one of the activation scripts from the repository root:
+Once you have the repository cloned, initialize BashTab by sourcing one of the activation scripts from the repository root:
 
 ```bash
 source ./activate
@@ -62,9 +62,9 @@ INFO    bu_core_init.sh:48[__bu_init_vscode] code cli already initialized, to fo
 INFO    bu_entrypoint.sh:93[source] Bash utils: fully set up
 ```
 
-These messages indicate that bash-utils has been successfully initialized and all core modules have been loaded.
+These messages indicate that BashTab has been successfully initialized and all core modules have been loaded.
 
-## Using bash-utils
+## Using BashTab
 
 ### Discover Available Commands
 
@@ -81,19 +81,19 @@ You should see a help message similar to:
 ```
 WARN    bu_impl.sh:78[__bu_impl] No arguments specified, printing help
 Help for bu
-bu is the Bash CLI implemented by bash-utils
+bu is the Bash CLI implemented by BashTab
 
 The following commands using a new shell context are available
 
-    new-command                       /home/sunjc/Documents/bash-utils/commands/bu-new-command.sh
+    new-command                       /home/sunjc/Documents/BashTab/commands/bu-new-command.sh
 
 The following commands using the current shell context are available
 
-    get-command                       /home/sunjc/Documents/bash-utils/commands/bu-get-command.sh
-    import-environment                /home/sunjc/Documents/bash-utils/commands/bu-import-environment.sh
-    invoke-cached-command             /home/sunjc/Documents/bash-utils/commands/bu-invoke-cached-command.sh
-    invoke-enhanced-command           /home/sunjc/Documents/bash-utils/commands/bu-invoke-enhanced-command.sh
-    invoke-spawn-command              /home/sunjc/Documents/bash-utils/commands/bu-invoke-spawn-command.sh
+    get-command                       /home/sunjc/Documents/BashTab/commands/bu-get-command.sh
+    import-environment                /home/sunjc/Documents/BashTab/commands/bu-import-environment.sh
+    invoke-cached-command             /home/sunjc/Documents/BashTab/commands/bu-invoke-cached-command.sh
+    invoke-enhanced-command           /home/sunjc/Documents/BashTab/commands/bu-invoke-enhanced-command.sh
+    invoke-spawn-command              /home/sunjc/Documents/BashTab/commands/bu-invoke-spawn-command.sh
 
 The following functions are available
 
@@ -114,7 +114,7 @@ The following key bindings are available
     \ex -> __bu_bind_fzf_autocomplete
 ```
 
-This output shows you all the commands and keybindings available in your bash-utils installation.
+This output shows you all the commands and keybindings available in your BashTab installation.
 
 ### Query Commands with get-command
 
@@ -169,7 +169,7 @@ This displays the full help documentation with all available options:
 
 ```
 $ bu get-command --help
-Help for /home/sunjc/Documents/bash-utils/commands/bu-get-command.sh
+Help for /home/sunjc/Documents/BashTab/commands/bu-get-command.sh
 
 OPTIONS
 
@@ -276,13 +276,13 @@ invoke-enhanced-command
 invoke-spawn-command
 ```
 
-This filtering makes it easy to discover related functionality and understand how bash-utils is organized.
+This filtering makes it easy to discover related functionality and understand how BashTab is organized.
 
 ## What's Next?
 
-Now that you have bash-utils installed and initialized, you can:
+Now that you have BashTab installed and initialized, you can:
 - Explore the available commands by using `bu COMMAND_NAME` with different command names
 - Create custom commands with `bu new-command`
-- Configure bash-utils for your specific workflows
+- Configure BashTab for your specific workflows
 
 For more information, check out the [README](../README.md) or explore the [commands documentation](../commands/README.md).

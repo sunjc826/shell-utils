@@ -64,11 +64,11 @@ The pros and cons of using a subshell:
 
 Since we only want to print the shell's environment, we do not need to modify the shell state. This means the drawbacks to using a subshell are of no effect to us. However, we also don't really have any complex logic that would make the guarantees provided by `set -e` very attractive. Hence, for this How-To, let us go with a completely non-sub-shell approach.
 
-Note that even in the subshell approach, bash-utils style autocompletion requires the parsing and autocompletion part to be outside a subshell since it needs to communicate state back to the current shell environment via variables.
+Note that even in the subshell approach, BashTab style autocompletion requires the parsing and autocompletion part to be outside a subshell since it needs to communicate state back to the current shell environment via variables.
 
 We have answered part 1. The relevant `bu new-command` option is the `--source` flag.
 
-Next, we want to decide where to place the script. Let's put this in `bash-utils-examples/commands`. The relevant `bu new-command` option is `--dir DIRECTORY`. If we press TAB after `--dir`, we might see autocompletions for `bash-utils/commands` only. That's because we have not registered `bash-utils-examples/commands` as a command search directory. This registration is done by `bu_preinit_register_user_defined_subcommand_dir` which is intended to be used by scripts sourcing bash-utils as a dependency.
+Next, we want to decide where to place the script. Let's put this in `BashTab-examples/commands`. The relevant `bu new-command` option is `--dir DIRECTORY`. If we press TAB after `--dir`, we might see autocompletions for `BashTab/commands` only. That's because we have not registered `BashTab-examples/commands` as a command search directory. This registration is done by `bu_preinit_register_user_defined_subcommand_dir` which is intended to be used by scripts sourcing BashTab as a dependency.
 
 Finally, we want to pick a name for the script. Script names should follow all lower case kebab style as it provides various benefits: Dashes are easier to type than underscores. We can also better distinguish commands from functions, which conventionally use underscores. Bash does not have the same level of case insensitivity that Powershell does, and all lower-case letters are easier to type as well.
 For greater structure, the name of a script can be split into 3 components, namespace, verb, and noun.
@@ -94,7 +94,7 @@ The final invocation is
 ```bash
 bu new-command \
   --source \
-  --dir /path/to/bash-utils-examples/commands \
+  --dir /path/to/BashTab-examples/commands \
   --name buex-get-envvars \
   --no-chdir
 ```

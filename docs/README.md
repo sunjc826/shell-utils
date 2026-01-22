@@ -5,11 +5,11 @@ permalink: /
 nav-order: 1
 ---
 
-# bash-utils
+# BashTab
 
 ## About
 
-**bash-utils** is a comprehensive scripting framework designed to make Bash development more productive and maintainable. It provides a complete toolkit for building command-line applications with modern features like intelligent autocompletion, argument parsing, and seamless IDE integration.
+**BashTab** is a comprehensive scripting framework designed to make Bash development more productive and maintainable. It provides a complete toolkit for building command-line applications with modern features like intelligent autocompletion, argument parsing, and seamless IDE integration.
 
 ### Core Strengths
 

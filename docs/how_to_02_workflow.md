@@ -1,13 +1,13 @@
 ---
 layout: page
-title: "How To: The bash-utils workflow"
-permalink: /how-to-02-bash-utils-workflow/
+title: "How To: The BashTab workflow"
+permalink: /how-to-02-BashTab-workflow/
 nav-order: 4
 ---
 
-An example on how bash-utils can complement a project. We use Python as an example.
+An example on how BashTab can complement a project. We use Python as an example.
 
-`${PROJECT_DIR}/deps`: Place bash-utils here with `git submodule add git@github.com:sunjc826/bash-utils.git`
+`${PROJECT_DIR}/deps`: Place BashTab here with `git submodule add git@github.com:sunjc826/BashTab.git`
 
 `${PROJECT_DIR}/activate`: activation script to enable the environment for the project
 
@@ -41,7 +41,7 @@ case "$1" in
 esac
 done
 
-# Generally speaking, bash-utils should have very few if any conflicts with other environments since
+# Generally speaking, BashTab should have very few if any conflicts with other environments since
 # all commands and variables are prefixed with BU_/bu_
 if command -v bu &>/dev/null
 then

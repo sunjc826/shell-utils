@@ -101,7 +101,7 @@ then
     local search_dirs=("${!BU_COMMAND_SEARCH_DIRS[@]}")
     bu_autohelp \
         --description "
-Create a bash-utils compatible \
+Create a BashTab compatible \
 (can be used with ${BU_TPUT_BOLD}${BU_CLI_COMMAND_NAME}${BU_TPUT_RESET}) \
 script using a template
 " \
