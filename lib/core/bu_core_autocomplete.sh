@@ -1884,8 +1884,6 @@ __bu_parse_bash()
     # local bracket_colors=(YY PP BB)
     bracket_colors+=("${bracket_colors[@]}")
     bracket_colors+=("${bracket_colors[@]}")
-    local is_post_env=false # Whether we have parsed all environment variables
-    local is_prev_space=true # Whether we have encountered a space, which is used to separate words. Initialized to true
     local is_op_prev=
     local char
     local op
@@ -1893,6 +1891,7 @@ __bu_parse_bash()
     local is_open_bracket
     local is_close_bracket
     local is_same_op
+    local is_separator
     for ((i = 0; i < ${#command_line_front}; i++))
     do
         op=${__bu_parse_bash_token_stack[${__bu_parse_bash_op_idx_stack[-1]}]}
@@ -2121,7 +2120,10 @@ __bu_parse_bash()
             for ((j=${#__bu_parse_bash_op_idx_stack[@]}-2; j > 0; j--))
             do
                 case "${__bu_parse_bash_token_stack[${__bu_parse_bash_op_idx_stack[j]}]}" in
-                '|'|'||'|'&&')
+                '$('|'${'*|'$((')
+                    break
+                    ;;
+                ';'|'|'|'||'|'&&'|'$'*)
                     ;;
                 *)
                     break
@@ -2256,6 +2258,16 @@ __bu_bind_fzf_autocomplete_impl()
     __bu_parse_bash token_stack color_stack op_idx_stack "$command_line_front"
 
     local environment_vars=
+
+    while ((${#op_idx_stack[@]} > 1))
+    do
+        case "${token_stack[op_idx_stack[-1]]}" in
+        '$('|'$((') break;;
+        '$'*) unset -v 'op_idx_stack[-1]';;
+        *) break;;
+        esac
+    done
+
     for ((i = ${op_idx_stack[-1]} + 1; i < ${#token_stack[@]}; i++))
     do
         case "${token_stack[i]}" in
@@ -2273,9 +2285,22 @@ __bu_bind_fzf_autocomplete_impl()
     # printf -- "-- %s\n" "${op_idx_stack[@]}"
     bu_list_join '' "${token_stack[@]:i}"
     local command_line_front_after_pipe=${BU_RET#"${BU_RET%%[![:space:]]*}"} # Remove any leading space
+
+    local command_line_options_colored=
+    for ((i++; i < ${#token_stack[@]}; i++))
+    do
+        case "${token_stack[i]}" in
+        -*|--*|' '-*|' '--*)
+            command_line_options_colored+=${BU_TPUT_VSCODE_DARK_BLUE}${token_stack[i]}${BU_TPUT_RESET}
+            ;;
+        *)
+            command_line_options_colored+=${token_stack[i]}
+            ;;
+        esac
+    done
+
     command_name=${command_name#"${command_name%%[![:space:]]*}"}
     environment_vars=${environment_vars#"${environment_vars%%[![:space:]]*}"}
-    local command_line_front_after_pipe_no_command=${command_line_front_after_pipe#$command_name}
 
     local command_line_front_before_pipe=${command_line_front:0:${#command_line_front}-${#command_line_front_after_pipe}}
     command_line_front_before_pipe=${command_line_front_before_pipe%$environment_vars}
@@ -2308,7 +2333,7 @@ __bu_bind_fzf_autocomplete_impl()
 
     local displayed_command_line_back=${BU_TPUT_RED}${command_line_back_no_operator}${BU_TPUT_RESET}${BU_TPUT_GREY}${command_line_back:${#command_line_back_no_operator}}${BU_TPUT_RESET}
 
-    printf "%s%s%s%s%s%s" "${BU_TPUT_GREY}${command_line_front_before_pipe}${BU_TPUT_RESET}" "${BU_TPUT_VSCODE_GREEN}${environment_vars}${BU_TPUT_RESET}" "${BU_TPUT_VSCODE_YELLOW}${command_name}${BU_TPUT_RESET}" "${command_line_front_after_pipe_no_command}" "${BU_TPUT_BLUE}${BU_TPUT_UNDERLINE}?${BU_TPUT_RESET}" "$displayed_command_line_back"
+    printf "%s%s%s%s%s%s" "${BU_TPUT_GREY}${command_line_front_before_pipe}${BU_TPUT_RESET}" "${BU_TPUT_VSCODE_GREEN}${environment_vars}${BU_TPUT_RESET}" "${BU_TPUT_VSCODE_YELLOW}${command_name}${BU_TPUT_RESET}" "${command_line_options_colored}" "${BU_TPUT_BLUE}${BU_TPUT_UNDERLINE}?${BU_TPUT_RESET}" "$displayed_command_line_back"
 
     # We need to append a space if we swallowed a space
     if [[ "${command_line_front:${#command_line_front}-1}" = ' ' ]]
@@ -2403,7 +2428,11 @@ __bu_bind_fzf_autocomplete_impl()
                 fi
             fi
         else
-            mapfile -t COMPREPLY < <(printf "%q\n" "${COMPREPLY[@]}")
+            # mapfile -t COMPREPLY < <(printf "%q\n" "${COMPREPLY[@]}")
+            case "${command_line[0]}" in          
+            *)
+                ;;
+            esac
         fi
     fi
 
