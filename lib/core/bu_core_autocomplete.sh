@@ -2454,12 +2454,16 @@ __bu_bind_fzf_autocomplete_impl()
             : $((total_len+=${#bu_compreply_metadata_no_ansi[i]}))
         done
         local avg_len=$(( total_len / ${#bu_compreply_metadata_no_ansi[@]} ))
-        if (( base_width < avg_len ))
-        then
-            show_preview=true
-        fi
         base_width=$(( base_width > avg_len + 30 ? base_width : avg_len + 30 ))
         base_width=$(( base_width > ${#__BU_PADDING_TABLE[@]} ? ${#__BU_PADDING_TABLE[@]} : base_width ))
+        for ((i=0; i < ${#bu_compreply_metadata_no_ansi[@]}; i++))
+        do
+            if (( base_width < ${#bu_compreply_metadata_no_ansi[i]} ))
+            then
+                show_preview=true
+                break
+            fi
+        done
     fi
 
     local preview_window_size=0
