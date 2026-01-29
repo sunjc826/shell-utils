@@ -1,0 +1,36 @@
+name: BATS Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Bash
+        run: |
+          bash --version
+
+      - name: Install BATS
+        run: |
+          # Install BATS from the submodule
+          sudo ./test/bats/install.sh /usr/local
+
+      - name: Run BATS tests
+        run: |
+          # Source the activate script with test environment
+          source ./activate -t
+
+          # Run tests with parallel execution
+          bats --jobs "$((($(nproc) + 1) / 2))" ./test/test.bats
