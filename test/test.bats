@@ -516,3 +516,157 @@ function test_bu_convert_file_to_command_namespace { #@test
     bu_convert_file_to_command_namespace powershell /a/b/c/verb-namespace-noun1-noun2-noun3.sh
     assert_equal "$BU_RET" verb-noun1-noun2-noun3
 }
+
+# Tests for bu_tolower
+function test_bu_tolower { #@test
+    local output
+
+    # Test basic lowercase conversion
+    output=$(bu_tolower "HELLO")
+    assert_equal "$output" "hello"
+
+    # Test mixed case
+    output=$(bu_tolower "HeLLo WoRLd")
+    assert_equal "$output" "hello world"
+
+    # Test already lowercase
+    output=$(bu_tolower "already lowercase")
+    assert_equal "$output" "already lowercase"
+
+    # Test with numbers and symbols
+    output=$(bu_tolower "Test123!@#")
+    assert_equal "$output" "test123!@#"
+
+    # Test empty string
+    output=$(bu_tolower "")
+    assert_equal "$output" ""
+
+    # Test multiple arguments (should join with spaces)
+    output=$(bu_tolower "ABC" "DEF" "GHI")
+    assert_equal "$output" "abc def ghi"
+}
+
+# Tests for bu_toupper
+function test_bu_toupper { #@test
+    local output
+
+    # Test basic uppercase conversion
+    output=$(bu_toupper "hello")
+    assert_equal "$output" "HELLO"
+
+    # Test mixed case
+    output=$(bu_toupper "HeLLo WoRLd")
+    assert_equal "$output" "HELLO WORLD"
+
+    # Test already uppercase
+    output=$(bu_toupper "ALREADY UPPERCASE")
+    assert_equal "$output" "ALREADY UPPERCASE"
+
+    # Test with numbers and symbols
+    output=$(bu_toupper "test123!@#")
+    assert_equal "$output" "TEST123!@#"
+
+    # Test empty string
+    output=$(bu_toupper "")
+    assert_equal "$output" ""
+
+    # Test multiple arguments (should join with spaces)
+    output=$(bu_toupper "abc" "def" "ghi")
+    assert_equal "$output" "ABC DEF GHI"
+}
+
+# Tests for bu_gen_trim
+function test_bu_gen_trim { #@test
+    local output
+
+    # Test trimming leading and trailing spaces
+    output=$(echo "  hello  " | bu_gen_trim)
+    assert_equal "$output" "hello"
+
+    # Test trimming tabs
+    output=$(printf "\t\thello\t\t" | bu_gen_trim)
+    assert_equal "$output" "hello"
+
+    # Test trimming mixed whitespace
+    output=$(echo "  hello   world  " | bu_gen_trim)
+    assert_equal "$output" "hello world"
+
+    # Test already trimmed
+    output=$(echo "hello" | bu_gen_trim)
+    assert_equal "$output" "hello"
+
+    # Test empty string
+    output=$(echo "" | bu_gen_trim)
+    assert_equal "$output" ""
+
+    # Test only whitespace
+    output=$(echo "   " | bu_gen_trim)
+    assert_equal "$output" ""
+}
+
+# Tests for bu_list_version_sort
+function test_bu_list_version_sort { #@test
+    # Test basic version sorting
+    bu_list_version_sort 1.10.0 1.2.0 1.1.0
+    assert_equal "${BU_RET[0]}" "1.1.0"
+    assert_equal "${BU_RET[1]}" "1.2.0"
+    assert_equal "${BU_RET[2]}" "1.10.0"
+
+    # Test with single element
+    bu_list_version_sort 1.0.0
+    assert_equal "${BU_RET[0]}" "1.0.0"
+
+    # Test with complex version numbers
+    bu_list_version_sort 2.0.0 1.0.0 1.10.0 1.2.0
+    assert_equal "${BU_RET[0]}" "1.0.0"
+    assert_equal "${BU_RET[1]}" "1.2.0"
+    assert_equal "${BU_RET[2]}" "1.10.0"
+    assert_equal "${BU_RET[3]}" "2.0.0"
+
+    # Test with patch versions
+    bu_list_version_sort 1.0.10 1.0.2 1.0.1
+    assert_equal "${BU_RET[0]}" "1.0.1"
+    assert_equal "${BU_RET[1]}" "1.0.2"
+    assert_equal "${BU_RET[2]}" "1.0.10"
+}
+
+# Tests for bu_env_is_in_tmux
+function test_bu_env_is_in_tmux { #@test
+    # Save current environment
+    local saved_tmux=$TMUX
+    local saved_term=$TERM
+
+    # Test when not in tmux (empty TMUX variable)
+    TMUX=""
+    TERM="xterm"
+    run bu_env_is_in_tmux
+    assert_failure
+
+    # Test when in tmux (both TMUX set and TERM is screen*)
+    TMUX="/tmp/tmux-1000/default,12345,0"
+    TERM="screen-256color"
+    run bu_env_is_in_tmux
+    assert_success
+
+    # Test when in tmux (both TMUX set and TERM is tmux*)
+    TMUX="/tmp/tmux-1000/default,12345,0"
+    TERM="tmux-256color"
+    run bu_env_is_in_tmux
+    assert_success
+
+    # Test when TMUX is set but TERM is wrong
+    TMUX="/tmp/tmux-1000/default,12345,0"
+    TERM="xterm"
+    run bu_env_is_in_tmux
+    assert_failure
+
+    # Test when TERM is right but TMUX is not set
+    TMUX=""
+    TERM="screen-256color"
+    run bu_env_is_in_tmux
+    assert_failure
+
+    # Restore environment
+    TMUX=$saved_tmux
+    TERM=$saved_term
+}
